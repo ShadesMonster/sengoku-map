@@ -1,745 +1,327 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 
-// Province data based on Shogun 2's 65 provinces
+// Province data with SVG paths for accurate Japan geography
 const PROVINCES = {
-  // Kyushu
-  satsuma: { id: 'satsuma', name: 'Satsuma', region: 'kyushu', x: 8, y: 85, resource: 'smithing', neighbors: ['osumi', 'hyuga'] },
-  osumi: { id: 'osumi', name: 'Osumi', region: 'kyushu', x: 12, y: 82, resource: null, neighbors: ['satsuma', 'hyuga'] },
-  hyuga: { id: 'hyuga', name: 'Hyuga', region: 'kyushu', x: 15, y: 78, resource: 'farming', neighbors: ['satsuma', 'osumi', 'higo', 'bungo'] },
-  higo: { id: 'higo', name: 'Higo', region: 'kyushu', x: 10, y: 74, resource: 'horses', neighbors: ['hyuga', 'bungo', 'tsukushi', 'hizen'] },
-  bungo: { id: 'bungo', name: 'Bungo', region: 'kyushu', x: 17, y: 72, resource: 'naval', neighbors: ['hyuga', 'higo', 'buzen'] },
-  buzen: { id: 'buzen', name: 'Buzen', region: 'kyushu', x: 18, y: 68, resource: 'craftwork', neighbors: ['bungo', 'tsukushi'] },
-  tsukushi: { id: 'tsukushi', name: 'Tsukushi', region: 'kyushu', x: 12, y: 68, resource: 'philosophical', neighbors: ['higo', 'buzen', 'hizen'] },
-  hizen: { id: 'hizen', name: 'Hizen', region: 'kyushu', x: 6, y: 70, resource: 'naval', neighbors: ['higo', 'tsukushi'] },
-  
-  // Shikoku
-  tosa: { id: 'tosa', name: 'Tosa', region: 'shikoku', x: 28, y: 72, resource: 'forest', neighbors: ['iyo', 'sanuki', 'awa_shikoku'] },
-  iyo: { id: 'iyo', name: 'Iyo', region: 'shikoku', x: 24, y: 68, resource: 'farming', neighbors: ['tosa', 'sanuki'] },
-  sanuki: { id: 'sanuki', name: 'Sanuki', region: 'shikoku', x: 30, y: 66, resource: 'stone', neighbors: ['tosa', 'iyo', 'awa_shikoku'] },
-  awa_shikoku: { id: 'awa_shikoku', name: 'Awa', region: 'shikoku', x: 34, y: 68, resource: 'horses', neighbors: ['tosa', 'sanuki'] },
-  
-  // Chugoku (Western Honshu)
-  nagato: { id: 'nagato', name: 'Nagato', region: 'chugoku', x: 20, y: 62, resource: 'farming', neighbors: ['suo', 'iwami'] },
-  suo: { id: 'suo', name: 'Suo', region: 'chugoku', x: 24, y: 60, resource: 'horses', neighbors: ['nagato', 'aki', 'iwami'] },
-  aki: { id: 'aki', name: 'Aki', region: 'chugoku', x: 28, y: 58, resource: 'hallowed', neighbors: ['suo', 'bingo', 'iwami'] },
-  bingo: { id: 'bingo', name: 'Bingo', region: 'chugoku', x: 32, y: 56, resource: 'naval', neighbors: ['aki', 'bitchu', 'izumo'] },
-  bitchu: { id: 'bitchu', name: 'Bitchu', region: 'chugoku', x: 36, y: 55, resource: 'farming', neighbors: ['bingo', 'bizen', 'mimasaka'] },
-  bizen: { id: 'bizen', name: 'Bizen', region: 'chugoku', x: 40, y: 54, resource: 'smithing', neighbors: ['bitchu', 'mimasaka', 'harima'] },
-  mimasaka: { id: 'mimasaka', name: 'Mimasaka', region: 'chugoku', x: 38, y: 50, resource: 'iron', neighbors: ['bitchu', 'bizen', 'inaba', 'hoki'] },
-  iwami: { id: 'iwami', name: 'Iwami', region: 'chugoku', x: 26, y: 54, resource: 'gold', neighbors: ['nagato', 'suo', 'aki', 'izumo'] },
-  izumo: { id: 'izumo', name: 'Izumo', region: 'chugoku', x: 30, y: 50, resource: 'farming', neighbors: ['iwami', 'bingo', 'hoki'] },
-  hoki: { id: 'hoki', name: 'Hoki', region: 'chugoku', x: 34, y: 48, resource: 'craftwork', neighbors: ['izumo', 'mimasaka', 'inaba'] },
-  inaba: { id: 'inaba', name: 'Inaba', region: 'chugoku', x: 38, y: 46, resource: 'naval', neighbors: ['hoki', 'mimasaka', 'tajima'] },
-  
-  // Kinai (Central)
-  harima: { id: 'harima', name: 'Harima', region: 'kinai', x: 44, y: 52, resource: null, neighbors: ['bizen', 'tajima', 'tamba', 'settsu'] },
-  tajima: { id: 'tajima', name: 'Tajima', region: 'kinai', x: 42, y: 46, resource: 'farming', neighbors: ['inaba', 'harima', 'tamba', 'tango'] },
-  tamba: { id: 'tamba', name: 'Tamba', region: 'kinai', x: 46, y: 48, resource: 'farming', neighbors: ['harima', 'tajima', 'settsu', 'kyoto', 'tango'] },
-  tango: { id: 'tango', name: 'Tango', region: 'kinai', x: 46, y: 42, resource: 'farming', neighbors: ['tajima', 'tamba', 'wakasa'] },
-  settsu: { id: 'settsu', name: 'Settsu', region: 'kinai', x: 48, y: 54, resource: 'philosophical', neighbors: ['harima', 'tamba', 'kawachi', 'kyoto'] },
-  kawachi: { id: 'kawachi', name: 'Kawachi', region: 'kinai', x: 50, y: 58, resource: 'farming', neighbors: ['settsu', 'yamato', 'kii'] },
-  kyoto: { id: 'kyoto', name: 'Kyoto', region: 'kinai', x: 52, y: 50, resource: 'philosophical', neighbors: ['tamba', 'settsu', 'omi', 'yamato'], special: 'capital' },
-  yamato: { id: 'yamato', name: 'Yamato', region: 'kinai', x: 54, y: 56, resource: 'hallowed', neighbors: ['kyoto', 'kawachi', 'kii', 'iga'] },
-  kii: { id: 'kii', name: 'Kii', region: 'kinai', x: 52, y: 64, resource: 'ninja', neighbors: ['kawachi', 'yamato', 'iga'] },
-  iga: { id: 'iga', name: 'Iga', region: 'kinai', x: 56, y: 58, resource: 'ninja', neighbors: ['yamato', 'kii', 'ise', 'omi'] },
-  
-  // Tokai
-  omi: { id: 'omi', name: 'Omi', region: 'tokai', x: 56, y: 50, resource: 'ninja', neighbors: ['kyoto', 'iga', 'ise', 'mino', 'wakasa', 'echizen'] },
-  wakasa: { id: 'wakasa', name: 'Wakasa', region: 'tokai', x: 50, y: 42, resource: 'farming', neighbors: ['tango', 'omi', 'echizen'] },
-  echizen: { id: 'echizen', name: 'Echizen', region: 'tokai', x: 54, y: 40, resource: 'craftwork', neighbors: ['wakasa', 'omi', 'mino', 'kaga'] },
-  ise: { id: 'ise', name: 'Ise', region: 'tokai', x: 60, y: 58, resource: 'hallowed', neighbors: ['iga', 'omi', 'mino', 'owari'] },
-  mino: { id: 'mino', name: 'Mino', region: 'tokai', x: 60, y: 50, resource: 'farming', neighbors: ['omi', 'echizen', 'ise', 'owari', 'hida', 's_shinano'] },
-  owari: { id: 'owari', name: 'Owari', region: 'tokai', x: 64, y: 54, resource: null, neighbors: ['ise', 'mino', 'mikawa', 's_shinano'] },
-  mikawa: { id: 'mikawa', name: 'Mikawa', region: 'tokai', x: 68, y: 56, resource: 'horses', neighbors: ['owari', 'totomi', 's_shinano'] },
-  totomi: { id: 'totomi', name: 'Totomi', region: 'tokai', x: 72, y: 58, resource: 'farming', neighbors: ['mikawa', 'suruga', 's_shinano'] },
-  suruga: { id: 'suruga', name: 'Suruga', region: 'tokai', x: 76, y: 56, resource: 'philosophical', neighbors: ['totomi', 'izu', 'kai', 's_shinano'] },
-  izu: { id: 'izu', name: 'Izu', region: 'tokai', x: 80, y: 60, resource: 'gold', neighbors: ['suruga', 'sagami'] },
-  
-  // Hokuriku
-  kaga: { id: 'kaga', name: 'Kaga', region: 'hokuriku', x: 58, y: 38, resource: 'smithing', neighbors: ['echizen', 'noto', 'etchu', 'hida'] },
-  noto: { id: 'noto', name: 'Noto', region: 'hokuriku', x: 60, y: 32, resource: 'farming', neighbors: ['kaga', 'etchu'] },
-  etchu: { id: 'etchu', name: 'Etchu', region: 'hokuriku', x: 64, y: 36, resource: 'farming', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'n_shinano'] },
-  hida: { id: 'hida', name: 'Hida', region: 'hokuriku', x: 64, y: 44, resource: 'forest', neighbors: ['mino', 'kaga', 'etchu', 'n_shinano', 's_shinano'] },
-  
-  // Shinano
-  n_shinano: { id: 'n_shinano', name: 'North Shinano', region: 'shinano', x: 70, y: 42, resource: 'farming', neighbors: ['etchu', 'hida', 's_shinano', 'echigo', 'kozuke'] },
-  s_shinano: { id: 's_shinano', name: 'South Shinano', region: 'shinano', x: 72, y: 50, resource: 'stone', neighbors: ['mino', 'owari', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'n_shinano', 'kozuke'] },
-  kai: { id: 'kai', name: 'Kai', region: 'shinano', x: 78, y: 52, resource: 'horses', neighbors: ['suruga', 's_shinano', 'sagami', 'musashi', 'kozuke'] },
-  
-  // Kanto
-  sagami: { id: 'sagami', name: 'Sagami', region: 'kanto', x: 82, y: 56, resource: 'smithing', neighbors: ['izu', 'kai', 'musashi'] },
-  musashi: { id: 'musashi', name: 'Musashi', region: 'kanto', x: 84, y: 50, resource: 'farming', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa'] },
-  kozuke: { id: 'kozuke', name: 'Kozuke', region: 'kanto', x: 78, y: 44, resource: 'philosophical', neighbors: ['n_shinano', 's_shinano', 'kai', 'musashi', 'shimotsuke', 'echigo'] },
-  shimotsuke: { id: 'shimotsuke', name: 'Shimotsuke', region: 'kanto', x: 84, y: 42, resource: 'hallowed', neighbors: ['kozuke', 'musashi', 'shimosa', 'hitachi', 'uzen'] },
-  shimosa: { id: 'shimosa', name: 'Shimosa', region: 'kanto', x: 88, y: 48, resource: 'farming', neighbors: ['musashi', 'shimotsuke', 'hitachi', 'kazusa'] },
-  kazusa: { id: 'kazusa', name: 'Kazusa', region: 'kanto', x: 90, y: 54, resource: null, neighbors: ['musashi', 'shimosa'] },
-  hitachi: { id: 'hitachi', name: 'Hitachi', region: 'kanto', x: 90, y: 44, resource: 'craftwork', neighbors: ['shimotsuke', 'shimosa', 'uzen', 'miyagi'] },
-  
-  // Tohoku
-  echigo: { id: 'echigo', name: 'Echigo', region: 'tohoku', x: 72, y: 34, resource: 'naval', neighbors: ['etchu', 'n_shinano', 'kozuke', 'uzen', 'ugo', 'sado'] },
-  sado: { id: 'sado', name: 'Sado', region: 'tohoku', x: 68, y: 28, resource: 'gold', neighbors: ['echigo'] },
-  ugo: { id: 'ugo', name: 'Ugo', region: 'tohoku', x: 76, y: 28, resource: 'stone', neighbors: ['echigo', 'uzen', 'iwate'] },
-  uzen: { id: 'uzen', name: 'Uzen', region: 'tohoku', x: 82, y: 32, resource: 'hallowed', neighbors: ['echigo', 'shimotsuke', 'hitachi', 'ugo', 'miyagi', 'iwate'] },
-  miyagi: { id: 'miyagi', name: 'Miyagi', region: 'tohoku', x: 88, y: 34, resource: 'iron', neighbors: ['hitachi', 'uzen', 'iwate'] },
-  fukushima: { id: 'fukushima', name: 'Fukushima', region: 'tohoku', x: 86, y: 38, resource: 'forest', neighbors: ['uzen', 'miyagi', 'shimotsuke'] },
-  iwate: { id: 'iwate', name: 'Iwate', region: 'tohoku', x: 88, y: 24, resource: 'smithing', neighbors: ['ugo', 'uzen', 'miyagi'] },
+  // KYUSHU
+  satsuma: { id: 'satsuma', name: 'Satsuma', x: 130, y: 520, resource: 'smithing', neighbors: ['osumi', 'higo'], path: 'M115,505 L145,500 L155,520 L150,545 L125,550 L110,535 Z' },
+  osumi: { id: 'osumi', name: 'Osumi', x: 165, y: 535, resource: null, neighbors: ['satsuma', 'hyuga'], path: 'M150,545 L155,520 L175,515 L190,530 L180,555 L155,555 Z' },
+  hyuga: { id: 'hyuga', name: 'Hyuga', x: 185, y: 490, resource: 'farming', neighbors: ['osumi', 'higo', 'bungo'], path: 'M175,515 L180,475 L200,460 L210,485 L195,520 L190,530 Z' },
+  higo: { id: 'higo', name: 'Higo', x: 135, y: 470, resource: 'horses', neighbors: ['satsuma', 'hyuga', 'bungo', 'tsukushi', 'hizen'], path: 'M115,505 L125,470 L155,450 L180,475 L175,515 L155,520 L145,500 Z' },
+  bungo: { id: 'bungo', name: 'Bungo', x: 200, y: 450, resource: 'naval', neighbors: ['hyuga', 'higo', 'buzen', 'tsukushi'], path: 'M180,475 L155,450 L170,430 L205,425 L215,450 L200,460 Z' },
+  buzen: { id: 'buzen', name: 'Buzen', x: 210, y: 415, resource: 'craftwork', neighbors: ['bungo', 'tsukushi'], path: 'M205,425 L195,405 L215,395 L235,405 L230,425 L215,430 Z' },
+  tsukushi: { id: 'tsukushi', name: 'Tsukushi', x: 160, y: 420, resource: 'philosophical', neighbors: ['higo', 'bungo', 'buzen', 'hizen'], path: 'M125,470 L130,435 L155,420 L195,405 L205,425 L170,430 L155,450 Z' },
+  hizen: { id: 'hizen', name: 'Hizen', x: 115, y: 435, resource: 'naval', neighbors: ['higo', 'tsukushi'], path: 'M95,460 L100,430 L130,415 L155,420 L130,435 L125,470 L115,475 Z' },
+  // SHIKOKU
+  tosa: { id: 'tosa', name: 'Tosa', x: 290, y: 465, resource: 'forest', neighbors: ['iyo', 'sanuki', 'awa_shikoku'], path: 'M250,480 L270,450 L310,445 L340,460 L330,490 L280,495 Z' },
+  iyo: { id: 'iyo', name: 'Iyo', x: 255, y: 435, resource: 'farming', neighbors: ['tosa', 'sanuki'], path: 'M235,455 L245,420 L280,415 L290,435 L270,450 L250,480 Z' },
+  sanuki: { id: 'sanuki', name: 'Sanuki', x: 310, y: 420, resource: 'stone', neighbors: ['tosa', 'iyo', 'awa_shikoku'], path: 'M280,415 L295,400 L340,405 L345,430 L310,445 L290,435 Z' },
+  awa_shikoku: { id: 'awa_shikoku', name: 'Awa', x: 345, y: 445, resource: 'horses', neighbors: ['tosa', 'sanuki'], path: 'M340,405 L365,415 L370,450 L340,460 L310,445 L345,430 Z' },
+  // CHUGOKU
+  nagato: { id: 'nagato', name: 'Nagato', x: 215, y: 370, resource: 'farming', neighbors: ['suo', 'iwami'], path: 'M195,385 L210,355 L245,350 L255,375 L240,390 L215,395 Z' },
+  suo: { id: 'suo', name: 'Suo', x: 250, y: 385, resource: 'horses', neighbors: ['nagato', 'aki', 'iwami'], path: 'M240,390 L255,375 L285,370 L295,390 L275,405 L250,400 Z' },
+  aki: { id: 'aki', name: 'Aki', x: 285, y: 385, resource: 'hallowed', neighbors: ['suo', 'bingo', 'iwami'], path: 'M275,405 L295,390 L325,385 L335,400 L315,415 L290,410 Z' },
+  bingo: { id: 'bingo', name: 'Bingo', x: 330, y: 390, resource: 'naval', neighbors: ['aki', 'bitchu', 'izumo', 'hoki'], path: 'M315,415 L335,400 L360,395 L375,410 L355,425 L330,420 Z' },
+  bitchu: { id: 'bitchu', name: 'Bitchu', x: 365, y: 400, resource: 'farming', neighbors: ['bingo', 'bizen', 'mimasaka', 'hoki'], path: 'M355,425 L375,410 L400,405 L410,420 L395,435 L370,430 Z' },
+  bizen: { id: 'bizen', name: 'Bizen', x: 400, y: 410, resource: 'smithing', neighbors: ['bitchu', 'mimasaka', 'harima'], path: 'M395,435 L410,420 L440,415 L450,435 L430,450 L405,445 Z' },
+  mimasaka: { id: 'mimasaka', name: 'Mimasaka', x: 400, y: 370, resource: 'iron', neighbors: ['bitchu', 'bizen', 'inaba', 'hoki', 'harima', 'tajima'], path: 'M375,390 L395,370 L425,365 L440,385 L410,420 L375,410 Z' },
+  iwami: { id: 'iwami', name: 'Iwami', x: 265, y: 350, resource: 'gold', neighbors: ['nagato', 'suo', 'aki', 'izumo'], path: 'M245,350 L260,325 L295,320 L310,345 L285,370 L255,375 Z' },
+  izumo: { id: 'izumo', name: 'Izumo', x: 310, y: 335, resource: 'farming', neighbors: ['iwami', 'bingo', 'hoki'], path: 'M295,320 L325,310 L355,320 L360,350 L335,365 L310,345 Z' },
+  hoki: { id: 'hoki', name: 'Hoki', x: 360, y: 350, resource: 'craftwork', neighbors: ['izumo', 'bingo', 'bitchu', 'mimasaka', 'inaba'], path: 'M355,320 L380,315 L395,335 L395,370 L360,395 L360,350 Z' },
+  inaba: { id: 'inaba', name: 'Inaba', x: 405, y: 335, resource: 'naval', neighbors: ['hoki', 'mimasaka', 'tajima'], path: 'M380,315 L410,305 L435,320 L425,365 L395,370 L395,335 Z' },
+  // KINAI
+  harima: { id: 'harima', name: 'Harima', x: 440, y: 420, resource: null, neighbors: ['bizen', 'mimasaka', 'tajima', 'tamba', 'settsu'], path: 'M430,450 L450,435 L475,425 L490,445 L470,465 L445,460 Z' },
+  tajima: { id: 'tajima', name: 'Tajima', x: 440, y: 350, resource: 'farming', neighbors: ['inaba', 'mimasaka', 'harima', 'tamba', 'tango'], path: 'M410,305 L445,295 L465,315 L455,355 L425,365 L435,320 Z' },
+  tamba: { id: 'tamba', name: 'Tamba', x: 480, y: 375, resource: 'farming', neighbors: ['tajima', 'harima', 'settsu', 'kyoto', 'tango', 'wakasa'], path: 'M455,355 L480,340 L510,350 L515,385 L490,400 L475,425 L450,435 L440,415 Z' },
+  tango: { id: 'tango', name: 'Tango', x: 495, y: 315, resource: 'farming', neighbors: ['tajima', 'tamba', 'wakasa'], path: 'M465,315 L485,285 L520,290 L520,325 L510,350 L480,340 Z' },
+  settsu: { id: 'settsu', name: 'Settsu', x: 500, y: 430, resource: 'philosophical', neighbors: ['harima', 'tamba', 'kawachi', 'kyoto', 'yamato'], path: 'M475,425 L490,400 L515,415 L520,445 L500,455 L490,445 Z' },
+  kawachi: { id: 'kawachi', name: 'Kawachi', x: 515, y: 470, resource: 'farming', neighbors: ['settsu', 'yamato', 'kii', 'izumi'], path: 'M500,455 L520,445 L535,460 L530,490 L510,495 L495,475 Z' },
+  kyoto: { id: 'kyoto', name: 'Kyoto', x: 540, y: 395, resource: 'philosophical', neighbors: ['tamba', 'settsu', 'omi', 'yamato', 'wakasa'], special: 'capital', path: 'M515,385 L540,370 L565,380 L560,415 L530,425 L515,415 Z' },
+  yamato: { id: 'yamato', name: 'Yamato', x: 545, y: 455, resource: 'hallowed', neighbors: ['kyoto', 'settsu', 'kawachi', 'kii', 'iga'], path: 'M520,445 L545,430 L570,445 L565,480 L530,490 L535,460 Z' },
+  kii: { id: 'kii', name: 'Kii', x: 535, y: 520, resource: 'ninja', neighbors: ['kawachi', 'yamato', 'iga', 'ise'], path: 'M495,520 L530,490 L565,480 L580,510 L560,550 L510,545 Z' },
+  iga: { id: 'iga', name: 'Iga', x: 580, y: 470, resource: 'ninja', neighbors: ['yamato', 'kii', 'ise', 'omi'], path: 'M565,480 L570,445 L595,450 L600,480 L580,510 Z' },
+  // TOKAI
+  omi: { id: 'omi', name: 'Omi', x: 580, y: 410, resource: 'ninja', neighbors: ['kyoto', 'iga', 'ise', 'mino', 'wakasa', 'echizen'], path: 'M540,370 L570,355 L600,365 L610,400 L595,450 L570,445 L560,415 Z' },
+  wakasa: { id: 'wakasa', name: 'Wakasa', x: 545, y: 340, resource: 'farming', neighbors: ['tango', 'tamba', 'kyoto', 'omi', 'echizen'], path: 'M520,325 L550,310 L575,320 L570,355 L540,370 L515,350 Z' },
+  echizen: { id: 'echizen', name: 'Echizen', x: 590, y: 335, resource: 'craftwork', neighbors: ['wakasa', 'omi', 'mino', 'kaga', 'hida'], path: 'M550,310 L580,290 L610,300 L620,335 L600,365 L570,355 L575,320 Z' },
+  ise: { id: 'ise', name: 'Ise', x: 625, y: 465, resource: 'hallowed', neighbors: ['iga', 'omi', 'mino', 'owari', 'kii'], path: 'M595,450 L610,430 L640,440 L650,480 L600,480 Z' },
+  mino: { id: 'mino', name: 'Mino', x: 635, y: 400, resource: 'farming', neighbors: ['omi', 'echizen', 'ise', 'owari', 'hida', 's_shinano'], path: 'M600,365 L620,355 L655,365 L660,400 L640,440 L610,430 L610,400 Z' },
+  owari: { id: 'owari', name: 'Owari', x: 670, y: 445, resource: null, neighbors: ['ise', 'mino', 'mikawa', 's_shinano'], path: 'M640,440 L660,425 L690,435 L695,465 L660,475 L650,480 Z' },
+  mikawa: { id: 'mikawa', name: 'Mikawa', x: 710, y: 465, resource: 'horses', neighbors: ['owari', 'totomi', 's_shinano'], path: 'M695,465 L690,435 L720,430 L735,455 L720,475 L700,480 Z' },
+  totomi: { id: 'totomi', name: 'Totomi', x: 750, y: 465, resource: 'farming', neighbors: ['mikawa', 'suruga', 's_shinano'], path: 'M720,475 L735,455 L765,450 L780,470 L760,490 L740,485 Z' },
+  suruga: { id: 'suruga', name: 'Suruga', x: 795, y: 460, resource: 'philosophical', neighbors: ['totomi', 'izu', 'kai', 's_shinano'], path: 'M765,450 L780,430 L810,435 L820,460 L795,480 L780,470 Z' },
+  izu: { id: 'izu', name: 'Izu', x: 840, y: 485, resource: 'gold', neighbors: ['suruga', 'sagami'], path: 'M820,460 L840,455 L855,480 L845,510 L820,505 L815,485 Z' },
+  // HOKURIKU
+  kaga: { id: 'kaga', name: 'Kaga', x: 625, y: 305, resource: 'smithing', neighbors: ['echizen', 'noto', 'etchu', 'hida'], path: 'M580,290 L605,270 L640,275 L650,305 L620,335 L610,300 Z' },
+  noto: { id: 'noto', name: 'Noto', x: 650, y: 260, resource: 'farming', neighbors: ['kaga', 'etchu'], path: 'M605,270 L625,235 L665,230 L670,260 L640,275 Z' },
+  etchu: { id: 'etchu', name: 'Etchu', x: 680, y: 290, resource: 'farming', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'n_shinano'], path: 'M640,275 L670,260 L705,265 L715,300 L680,320 L650,305 Z' },
+  hida: { id: 'hida', name: 'Hida', x: 665, y: 355, resource: 'forest', neighbors: ['echizen', 'kaga', 'etchu', 'mino', 'n_shinano', 's_shinano'], path: 'M620,335 L650,305 L680,320 L685,360 L655,365 Z' },
+  // SHINANO
+  n_shinano: { id: 'n_shinano', name: 'N. Shinano', x: 725, y: 350, resource: 'farming', neighbors: ['etchu', 'hida', 's_shinano', 'echigo', 'kozuke'], path: 'M680,320 L715,300 L750,310 L755,355 L720,375 L685,360 Z' },
+  s_shinano: { id: 's_shinano', name: 'S. Shinano', x: 725, y: 410, resource: 'stone', neighbors: ['mino', 'owari', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'n_shinano', 'kozuke'], path: 'M685,360 L720,375 L755,385 L760,430 L720,430 L690,435 L660,425 L655,365 Z' },
+  kai: { id: 'kai', name: 'Kai', x: 800, y: 425, resource: 'horses', neighbors: ['suruga', 's_shinano', 'sagami', 'musashi', 'kozuke'], path: 'M755,385 L785,375 L815,390 L820,430 L780,430 L760,430 Z' },
+  // KANTO
+  sagami: { id: 'sagami', name: 'Sagami', x: 855, y: 455, resource: 'smithing', neighbors: ['izu', 'kai', 'musashi'], path: 'M815,390 L845,400 L865,435 L855,465 L820,460 L810,435 L820,430 Z' },
+  musashi: { id: 'musashi', name: 'Musashi', x: 870, y: 410, resource: 'farming', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa'], path: 'M815,390 L830,365 L870,355 L895,380 L890,420 L865,435 L845,400 Z' },
+  kozuke: { id: 'kozuke', name: 'Kozuke', x: 805, y: 355, resource: 'philosophical', neighbors: ['n_shinano', 's_shinano', 'kai', 'musashi', 'shimotsuke', 'echigo'], path: 'M750,310 L780,295 L820,305 L830,365 L815,390 L785,375 L755,355 Z' },
+  shimotsuke: { id: 'shimotsuke', name: 'Shimotsuke', x: 880, y: 350, resource: 'hallowed', neighbors: ['kozuke', 'musashi', 'shimosa', 'hitachi', 'echigo', 'iwashiro'], path: 'M820,305 L855,295 L895,310 L900,355 L870,355 L830,365 Z' },
+  shimosa: { id: 'shimosa', name: 'Shimosa', x: 920, y: 395, resource: 'farming', neighbors: ['musashi', 'shimotsuke', 'hitachi', 'kazusa'], path: 'M895,380 L925,365 L945,390 L935,420 L905,430 L890,420 Z' },
+  kazusa: { id: 'kazusa', name: 'Kazusa', x: 925, y: 445, resource: null, neighbors: ['musashi', 'shimosa', 'awa_kanto'], path: 'M890,420 L905,430 L935,420 L940,455 L915,475 L890,460 L865,435 Z' },
+  awa_kanto: { id: 'awa_kanto', name: 'Awa', x: 935, y: 495, resource: 'naval', neighbors: ['kazusa'], path: 'M915,475 L940,470 L955,495 L940,520 L915,510 Z' },
+  hitachi: { id: 'hitachi', name: 'Hitachi', x: 945, y: 355, resource: 'craftwork', neighbors: ['shimotsuke', 'shimosa', 'iwashiro', 'iwaki'], path: 'M895,310 L920,290 L955,305 L960,355 L945,390 L925,365 L900,355 Z' },
+  // TOHOKU
+  echigo: { id: 'echigo', name: 'Echigo', x: 760, y: 285, resource: 'naval', neighbors: ['etchu', 'n_shinano', 'kozuke', 'shimotsuke', 'uzen', 'ugo', 'sado'], path: 'M705,265 L730,240 L780,235 L810,260 L820,305 L780,295 L750,310 L715,300 Z' },
+  sado: { id: 'sado', name: 'Sado', x: 710, y: 230, resource: 'gold', neighbors: ['echigo'], path: 'M680,205 L710,200 L720,225 L700,240 L675,235 Z' },
+  ugo: { id: 'ugo', name: 'Ugo', x: 795, y: 205, resource: 'stone', neighbors: ['echigo', 'uzen', 'rikuchu'], path: 'M750,220 L775,180 L820,175 L830,215 L800,245 L780,235 Z' },
+  uzen: { id: 'uzen', name: 'Uzen', x: 850, y: 245, resource: 'hallowed', neighbors: ['echigo', 'shimotsuke', 'ugo', 'iwashiro', 'rikuzen', 'rikuchu'], path: 'M800,245 L830,215 L870,225 L885,265 L855,295 L820,305 L810,260 Z' },
+  iwashiro: { id: 'iwashiro', name: 'Iwashiro', x: 890, y: 295, resource: 'forest', neighbors: ['shimotsuke', 'uzen', 'hitachi', 'iwaki', 'rikuzen'], path: 'M855,295 L885,265 L915,275 L920,310 L895,310 Z' },
+  iwaki: { id: 'iwaki', name: 'Iwaki', x: 955, y: 310, resource: 'iron', neighbors: ['hitachi', 'iwashiro', 'rikuzen'], path: 'M920,290 L950,275 L970,295 L960,330 L955,305 Z' },
+  rikuzen: { id: 'rikuzen', name: 'Rikuzen', x: 925, y: 245, resource: 'naval', neighbors: ['uzen', 'iwashiro', 'iwaki', 'rikuchu'], path: 'M885,265 L905,225 L945,220 L960,260 L950,275 L920,290 L915,275 Z' },
+  rikuchu: { id: 'rikuchu', name: 'Rikuchu', x: 885, y: 185, resource: 'horses', neighbors: ['ugo', 'uzen', 'rikuzen', 'mutsu'], path: 'M830,215 L845,165 L895,150 L925,175 L945,220 L905,225 L870,225 Z' },
+  mutsu: { id: 'mutsu', name: 'Mutsu', x: 885, y: 130, resource: 'smithing', neighbors: ['rikuchu'], path: 'M845,165 L855,115 L900,95 L935,120 L930,165 L895,150 Z' },
 };
 
-// Default clans with colors
-const DEFAULT_CLANS = {
-  shimazu: { id: 'shimazu', name: 'Shimazu', color: '#DC2626', provinces: ['satsuma'], armies: 2 },
-  chosokabe: { id: 'chosokabe', name: 'Chosokabe', color: '#F59E0B', provinces: ['tosa'], armies: 2 },
-  mori: { id: 'mori', name: 'Mōri', color: '#10B981', provinces: ['aki'], armies: 2 },
-  oda: { id: 'oda', name: 'Oda', color: '#3B82F6', provinces: ['owari'], armies: 2 },
-  takeda: { id: 'takeda', name: 'Takeda', color: '#8B5CF6', provinces: ['kai'], armies: 2 },
-  uesugi: { id: 'uesugi', name: 'Uesugi', color: '#06B6D4', provinces: ['echigo'], armies: 2 },
-  hojo: { id: 'hojo', name: 'Hōjō', color: '#EC4899', provinces: ['sagami', 'izu'], armies: 3 },
-  date: { id: 'date', name: 'Date', color: '#6366F1', provinces: ['iwate'], armies: 2 },
-  tokugawa: { id: 'tokugawa', name: 'Tokugawa', color: '#84CC16', provinces: ['mikawa'], armies: 2 },
-  imagawa: { id: 'imagawa', name: 'Imagawa', color: '#F97316', provinces: ['suruga', 'totomi'], armies: 3 },
-  uncontrolled: { id: 'uncontrolled', name: 'Uncontrolled', color: '#6B7280', provinces: [], armies: 0 },
+const CLANS = {
+  shimazu: { id: 'shimazu', name: 'Shimazu', color: '#DC2626', provinces: ['satsuma', 'osumi'] },
+  chosokabe: { id: 'chosokabe', name: 'Chōsokabe', color: '#F59E0B', provinces: ['tosa'] },
+  mori: { id: 'mori', name: 'Mōri', color: '#059669', provinces: ['aki', 'suo', 'nagato'] },
+  oda: { id: 'oda', name: 'Oda', color: '#3B82F6', provinces: ['owari'] },
+  takeda: { id: 'takeda', name: 'Takeda', color: '#7C3AED', provinces: ['kai'] },
+  uesugi: { id: 'uesugi', name: 'Uesugi', color: '#0891B2', provinces: ['echigo'] },
+  hojo: { id: 'hojo', name: 'Hōjō', color: '#DB2777', provinces: ['sagami', 'izu', 'musashi'] },
+  date: { id: 'date', name: 'Date', color: '#4F46E5', provinces: ['mutsu', 'rikuchu'] },
+  tokugawa: { id: 'tokugawa', name: 'Tokugawa', color: '#65A30D', provinces: ['mikawa'] },
+  imagawa: { id: 'imagawa', name: 'Imagawa', color: '#EA580C', provinces: ['suruga', 'totomi'] },
+  uncontrolled: { id: 'uncontrolled', name: 'Neutral', color: '#52525B', provinces: [] },
 };
 
-// Resource icons and info
 const RESOURCES = {
-  smithing: { icon: '⚔️', name: 'Smithing', desc: 'Weapons & Armor' },
-  horses: { icon: '🐎', name: 'Horses', desc: 'Cavalry Training' },
-  gold: { icon: '💰', name: 'Gold', desc: 'Gold Mines' },
-  iron: { icon: '⛏️', name: 'Iron', desc: 'Iron Mines' },
-  farming: { icon: '🌾', name: 'Farming', desc: 'Fertile Land' },
-  naval: { icon: '⚓', name: 'Naval', desc: 'Naval Tradition' },
-  craftwork: { icon: '🏺', name: 'Craftwork', desc: 'Artisans' },
-  ninja: { icon: '🥷', name: 'Ninja', desc: 'Shadow Arts' },
-  hallowed: { icon: '⛩️', name: 'Hallowed Ground', desc: 'Sacred Sites' },
-  philosophical: { icon: '📜', name: 'Philosophy', desc: 'Learning' },
-  forest: { icon: '🌲', name: 'Prime Forest', desc: 'Timber' },
-  stone: { icon: '🪨', name: 'Stone', desc: 'Quarries' },
+  smithing: { icon: '⚔️', name: 'Smithing' }, horses: { icon: '🐎', name: 'Horses' },
+  gold: { icon: '💰', name: 'Gold' }, iron: { icon: '⛏️', name: 'Iron' },
+  farming: { icon: '🌾', name: 'Farming' }, naval: { icon: '⚓', name: 'Naval' },
+  craftwork: { icon: '🏺', name: 'Craftwork' }, ninja: { icon: '🥷', name: 'Ninja' },
+  hallowed: { icon: '⛩️', name: 'Sacred' }, philosophical: { icon: '📜', name: 'Learning' },
+  forest: { icon: '🌲', name: 'Timber' }, stone: { icon: '🪨', name: 'Stone' },
 };
 
-// Building types
 const BUILDINGS = {
-  castle: { icon: '🏯', name: 'Castle', buildTime: 5, desc: '+1 Army Capacity' },
-  temple: { icon: '⛩️', name: 'Temple', buildTime: 3, desc: 'Reduces Unrest' },
-  barracks: { icon: '🎌', name: 'Barracks', buildTime: 2, desc: 'Faster Recruitment' },
-  market: { icon: '🏪', name: 'Market', buildTime: 2, desc: '+Income' },
-  port: { icon: '⚓', name: 'Port', buildTime: 3, desc: 'Naval Movement' },
-  watchtower: { icon: '🗼', name: 'Watchtower', buildTime: 1, desc: 'Vision Range' },
-};
-
-// Terrain types for movement
-const TERRAIN = {
-  plains: { moveCost: 1, color: '#86EFAC' },
-  forest: { moveCost: 1, hidden: true, color: '#166534' },
-  mountain: { moveCost: 2, color: '#A1A1AA' },
-  coastal: { moveCost: 1, color: '#7DD3FC' },
+  castle: { icon: '🏯', name: 'Castle', time: 5 }, temple: { icon: '⛩️', name: 'Temple', time: 3 },
+  barracks: { icon: '🎌', name: 'Barracks', time: 2 }, market: { icon: '🏪', name: 'Market', time: 2 },
 };
 
 export default function SengokuMap() {
-  // Game state
-  const [clans, setClans] = useState(DEFAULT_CLANS);
   const [provinces, setProvinces] = useState(() => {
-    const initial = {};
-    Object.entries(PROVINCES).forEach(([id, prov]) => {
-      // Find which clan owns this province
+    const init = {};
+    Object.entries(PROVINCES).forEach(([id, p]) => {
       let owner = 'uncontrolled';
-      Object.entries(DEFAULT_CLANS).forEach(([clanId, clan]) => {
-        if (clan.provinces.includes(id)) owner = clanId;
-      });
-      initial[id] = {
-        ...prov,
-        owner,
-        armies: owner !== 'uncontrolled' ? 1 : 0,
-        buildings: [],
-        constructing: null,
-        unrest: 0,
-      };
+      Object.entries(CLANS).forEach(([cid, c]) => { if (c.provinces?.includes(id)) owner = cid; });
+      init[id] = { ...p, owner, armies: owner !== 'uncontrolled' ? 1 : 0, buildings: [], constructing: null };
     });
-    return initial;
+    return init;
   });
-  
-  const [selectedProvince, setSelectedProvince] = useState(null);
-  const [selectedArmy, setSelectedArmy] = useState(null);
-  const [movementTarget, setMovementTarget] = useState(null);
-  const [plannedMoves, setPlannedMoves] = useState([]);
-  const [currentWeek, setCurrentWeek] = useState(1);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [currentClan, setCurrentClan] = useState('oda');
-  const [showBuildMenu, setShowBuildMenu] = useState(false);
-  const [hoveredProvince, setHoveredProvince] = useState(null);
-  const [mapZoom, setMapZoom] = useState(1);
-  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
 
-  // Get owner color for a province
-  const getProvinceColor = (provId) => {
-    const prov = provinces[provId];
-    if (!prov) return '#6B7280';
-    return clans[prov.owner]?.color || '#6B7280';
+  const [selected, setSelected] = useState(null);
+  const [selArmy, setSelArmy] = useState(null);
+  const [moveTarget, setMoveTarget] = useState(null);
+  const [moves, setMoves] = useState([]);
+  const [week] = useState(1);
+  const [admin, setAdmin] = useState(false);
+  const [clan, setClan] = useState('oda');
+  const [buildMenu, setBuildMenu] = useState(false);
+  const [hovered, setHovered] = useState(null);
+
+  const color = (id) => CLANS[provinces[id]?.owner]?.color || '#52525B';
+
+  const clickProv = (id) => {
+    if (selArmy && !moveTarget && provinces[selArmy.prov].neighbors.includes(id)) { setMoveTarget(id); return; }
+    setSelected(id); setSelArmy(null); setMoveTarget(null); setBuildMenu(false);
   };
 
-  // Handle province selection
-  const handleProvinceClick = (provId) => {
-    if (selectedArmy && movementTarget === null) {
-      // We have an army selected, this click is setting movement target
-      const fromProv = provinces[selectedArmy.province];
-      if (fromProv.neighbors.includes(provId)) {
-        setMovementTarget(provId);
-      }
-    } else {
-      setSelectedProvince(provId);
-      setSelectedArmy(null);
-      setMovementTarget(null);
-      setShowBuildMenu(false);
-    }
-  };
-
-  // Handle army selection
-  const handleArmyClick = (e, provId) => {
+  const clickArmy = (e, id) => {
     e.stopPropagation();
-    const prov = provinces[provId];
-    if (prov.owner === currentClan && prov.armies > 0) {
-      setSelectedArmy({ province: provId, count: 1 });
-      setSelectedProvince(provId);
-      setMovementTarget(null);
+    if (provinces[id].owner === clan && provinces[id].armies > 0) {
+      setSelArmy({ prov: id }); setSelected(id); setMoveTarget(null);
     }
   };
 
-  // Confirm movement
-  const confirmMovement = () => {
-    if (selectedArmy && movementTarget) {
-      const newMove = {
-        id: Date.now(),
-        from: selectedArmy.province,
-        to: movementTarget,
-        armies: selectedArmy.count,
-        clan: currentClan,
-      };
-      setPlannedMoves([...plannedMoves, newMove]);
-      setSelectedArmy(null);
-      setMovementTarget(null);
+  const confirmMove = () => {
+    if (selArmy && moveTarget) {
+      setMoves([...moves, { id: Date.now(), from: selArmy.prov, to: moveTarget, clan }]);
+      setSelArmy(null); setMoveTarget(null);
     }
   };
 
-  // Cancel movement
-  const cancelMovement = () => {
-    setSelectedArmy(null);
-    setMovementTarget(null);
+  const build = (type) => {
+    if (!selected || provinces[selected].owner !== clan || provinces[selected].constructing) return;
+    setProvinces({ ...provinces, [selected]: { ...provinces[selected], constructing: { type, days: BUILDINGS[type].time } } });
+    setBuildMenu(false);
   };
 
-  // Remove planned move
-  const removePlannedMove = (moveId) => {
-    setPlannedMoves(plannedMoves.filter(m => m.id !== moveId));
-  };
+  const changeOwner = (id, newOwner) => setProvinces({ ...provinces, [id]: { ...provinces[id], owner: newOwner } });
 
-  // Build structure
-  const startBuilding = (buildingType) => {
-    if (!selectedProvince) return;
-    const prov = provinces[selectedProvince];
-    if (prov.owner !== currentClan || prov.constructing) return;
-    
-    setProvinces({
-      ...provinces,
-      [selectedProvince]: {
-        ...prov,
-        constructing: {
-          type: buildingType,
-          daysLeft: BUILDINGS[buildingType].buildTime,
-        },
-      },
-    });
-    setShowBuildMenu(false);
-  };
+  return (
+    <div className="w-full h-screen bg-stone-950 relative overflow-hidden" style={{ fontFamily: 'Georgia, serif' }}>
+      {/* Header */}
+      <div className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-b from-stone-900 to-transparent z-10 flex items-center justify-center">
+        <h1 className="text-3xl font-bold" style={{ color: '#C9A227', textShadow: '2px 2px 6px #000' }}>
+          戦国 <span className="text-xl text-stone-400">SENGOKU</span>
+        </h1>
+      </div>
 
-  // Admin: Resolve battle
-  const resolveBattle = (provId, winner) => {
-    setProvinces({
-      ...provinces,
-      [provId]: {
-        ...provinces[provId],
-        owner: winner,
-        unrest: 2, // New conquest has unrest
-      },
-    });
-  };
-
-  // Render province marker
-  const renderProvince = (provId) => {
-    const prov = provinces[provId];
-    const baseProv = PROVINCES[provId];
-    const isSelected = selectedProvince === provId;
-    const isHovered = hoveredProvince === provId;
-    const isMovementTarget = movementTarget === provId;
-    const isValidMoveTarget = selectedArmy && provinces[selectedArmy.province]?.neighbors.includes(provId);
-    const isOwnedByPlayer = prov.owner === currentClan;
-    
-    const size = isSelected ? 14 : isHovered ? 12 : 10;
-    
-    return (
-      <g key={provId} transform={`translate(${baseProv.x * 8}, ${baseProv.y * 5})`}>
-        {/* Province territory circle */}
-        <circle
-          cx={0}
-          cy={0}
-          r={size}
-          fill={getProvinceColor(provId)}
-          stroke={isSelected ? '#FFF' : isValidMoveTarget ? '#FFD700' : isMovementTarget ? '#00FF00' : '#000'}
-          strokeWidth={isSelected ? 3 : isValidMoveTarget ? 2 : 1}
-          opacity={0.85}
-          style={{ cursor: 'pointer', transition: 'all 0.2s' }}
-          onClick={() => handleProvinceClick(provId)}
-          onMouseEnter={() => setHoveredProvince(provId)}
-          onMouseLeave={() => setHoveredProvince(null)}
-        />
+      {/* Map */}
+      <svg viewBox="70 80 920 500" className="w-full h-full" style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}>
+        <defs>
+          <pattern id="water" patternUnits="userSpaceOnUse" width="40" height="40">
+            <rect width="40" height="40" fill="#0c1929" />
+            <circle cx="20" cy="20" r="1" fill="#1e3a5f" opacity="0.3" />
+          </pattern>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#fbbf24" /></marker>
+        </defs>
         
-        {/* Province name */}
-        <text
-          x={0}
-          y={-size - 4}
-          textAnchor="middle"
-          fontSize={isHovered || isSelected ? 8 : 6}
-          fill="#FFF"
-          fontWeight={isSelected ? 'bold' : 'normal'}
-          style={{ pointerEvents: 'none', textShadow: '1px 1px 2px #000' }}
-        >
-          {baseProv.name}
-        </text>
-        
-        {/* Resource icon */}
-        {baseProv.resource && (
-          <text
-            x={size + 4}
-            y={0}
-            fontSize={8}
-            dominantBaseline="middle"
-            style={{ pointerEvents: 'none' }}
-          >
-            {RESOURCES[baseProv.resource]?.icon}
-          </text>
+        <rect x="0" y="0" width="1000" height="600" fill="url(#water)" />
+
+        {/* Provinces */}
+        {Object.entries(PROVINCES).map(([id, p]) => {
+          const isSel = selected === id, isHov = hovered === id;
+          const isTarget = selArmy && provinces[selArmy.prov]?.neighbors.includes(id);
+          const isMoveT = moveTarget === id;
+          return (
+            <path key={id} d={p.path} fill={color(id)} fillOpacity={isSel ? 0.9 : isHov ? 0.8 : 0.6}
+              stroke={isSel ? '#fbbf24' : isMoveT ? '#22c55e' : isTarget ? '#fbbf24' : '#374151'}
+              strokeWidth={isSel ? 3 : isTarget ? 2 : 1} filter={isSel || isHov ? 'url(#glow)' : undefined}
+              style={{ cursor: 'pointer', transition: 'all 0.15s' }}
+              onClick={() => clickProv(id)} onMouseEnter={() => setHovered(id)} onMouseLeave={() => setHovered(null)} />
+          );
+        })}
+
+        {/* Labels & Armies */}
+        {Object.entries(PROVINCES).map(([id, p]) => {
+          const pr = provinces[id], isMine = pr.owner === clan;
+          return (
+            <g key={`lbl-${id}`} style={{ pointerEvents: 'none' }}>
+              <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="9" fill="#fff" style={{ textShadow: '1px 1px 2px #000' }}>{p.name}</text>
+              {p.resource && <text x={p.x + 22} y={p.y - 6} fontSize="9">{RESOURCES[p.resource]?.icon}</text>}
+              {p.special === 'capital' && <text x={p.x} y={p.y + 18} textAnchor="middle" fontSize="12">👑</text>}
+              {pr.armies > 0 && (
+                <g style={{ pointerEvents: 'auto', cursor: isMine ? 'pointer' : 'default' }} onClick={(e) => clickArmy(e, id)}>
+                  <circle cx={p.x} cy={p.y + 6} r={9} fill="#1f2937" stroke={isMine ? '#fbbf24' : '#6b7280'} strokeWidth={1.5} />
+                  <text x={p.x} y={p.y + 10} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="bold">{pr.armies}</text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+
+        {/* Movement arrows */}
+        {moves.filter(m => m.clan === clan).map(m => (
+          <line key={m.id} x1={PROVINCES[m.from].x} y1={PROVINCES[m.from].y} x2={PROVINCES[m.to].x} y2={PROVINCES[m.to].y}
+            stroke={CLANS[m.clan]?.color} strokeWidth={3} strokeDasharray="8,4" markerEnd="url(#arrow)" opacity={0.8} />
+        ))}
+        {selArmy && moveTarget && (
+          <line x1={PROVINCES[selArmy.prov].x} y1={PROVINCES[selArmy.prov].y} x2={PROVINCES[moveTarget].x} y2={PROVINCES[moveTarget].y}
+            stroke="#22c55e" strokeWidth={4} strokeDasharray="10,5" markerEnd="url(#arrow)" />
         )}
-        
-        {/* Army count */}
-        {prov.armies > 0 && (
-          <g onClick={(e) => handleArmyClick(e, provId)} style={{ cursor: isOwnedByPlayer ? 'pointer' : 'default' }}>
-            <circle cx={0} cy={size + 8} r={6} fill="#1F2937" stroke={isOwnedByPlayer ? '#FFD700' : '#FFF'} strokeWidth={1} />
-            <text x={0} y={size + 8} textAnchor="middle" dominantBaseline="middle" fontSize={8} fill="#FFF" fontWeight="bold">
-              {prov.armies}
-            </text>
-          </g>
-        )}
-        
-        {/* Kyoto marker */}
-        {baseProv.special === 'capital' && (
-          <text x={0} y={size + 18} textAnchor="middle" fontSize={10}>👑</text>
-        )}
-        
-        {/* Construction indicator */}
-        {prov.constructing && (
-          <text x={-size - 4} y={0} fontSize={8}>🔨</text>
-        )}
-      </g>
-    );
-  };
+      </svg>
 
-  // Render movement arrows for planned moves
-  const renderPlannedMoves = () => {
-    return plannedMoves.map(move => {
-      const from = PROVINCES[move.from];
-      const to = PROVINCES[move.to];
-      const clanColor = clans[move.clan]?.color || '#FFF';
-      
-      return (
-        <g key={move.id}>
-          <defs>
-            <marker id={`arrow-${move.id}`} markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L9,3 z" fill={clanColor} />
-            </marker>
-          </defs>
-          <line
-            x1={from.x * 8}
-            y1={from.y * 5}
-            x2={to.x * 8}
-            y2={to.y * 5}
-            stroke={clanColor}
-            strokeWidth={2}
-            strokeDasharray="5,3"
-            markerEnd={`url(#arrow-${move.id})`}
-          />
-        </g>
-      );
-    });
-  };
-
-  // Render current movement planning arrow
-  const renderCurrentMovement = () => {
-    if (!selectedArmy || !movementTarget) return null;
-    const from = PROVINCES[selectedArmy.province];
-    const to = PROVINCES[movementTarget];
-    
-    return (
-      <line
-        x1={from.x * 8}
-        y1={from.y * 5}
-        x2={to.x * 8}
-        y2={to.y * 5}
-        stroke="#00FF00"
-        strokeWidth={3}
-        strokeDasharray="8,4"
-      />
-    );
-  };
-
-  // Province info panel
-  const renderProvinceInfo = () => {
-    if (!selectedProvince) return null;
-    const prov = provinces[selectedProvince];
-    const baseProv = PROVINCES[selectedProvince];
-    const ownerClan = clans[prov.owner];
-    
-    return (
-      <div className="absolute top-4 right-4 w-72 bg-gray-900/95 rounded-lg border border-gray-700 shadow-xl overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-700" style={{ backgroundColor: ownerClan?.color + '40' }}>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            {baseProv.name}
-            {baseProv.special === 'capital' && <span>👑</span>}
-          </h2>
-          <p className="text-sm text-gray-300">
-            Controlled by: <span style={{ color: ownerClan?.color }}>{ownerClan?.name || 'None'}</span>
-          </p>
+      {/* Top controls */}
+      <div className="absolute top-16 left-4 flex gap-2 z-20">
+        <div className="bg-stone-900/90 rounded border border-stone-700 px-3 py-2">
+          <p className="text-stone-500 text-xs">Week</p>
+          <p className="text-amber-400 font-bold text-xl">{week}</p>
         </div>
-        
-        {/* Stats */}
-        <div className="p-4 space-y-3">
-          {/* Resource */}
-          {baseProv.resource && (
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{RESOURCES[baseProv.resource]?.icon}</span>
-              <div>
-                <p className="text-white font-medium">{RESOURCES[baseProv.resource]?.name}</p>
-                <p className="text-xs text-gray-400">{RESOURCES[baseProv.resource]?.desc}</p>
+        <div className="bg-stone-900/90 rounded border border-stone-700 px-3 py-2">
+          <p className="text-stone-500 text-xs">Clan</p>
+          <select value={clan} onChange={e => setClan(e.target.value)} className="bg-transparent font-bold" style={{ color: CLANS[clan]?.color }}>
+            {Object.entries(CLANS).filter(([id]) => id !== 'uncontrolled').map(([id, c]) => (
+              <option key={id} value={id} style={{ color: '#fff', background: '#1c1917' }}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <button onClick={() => setAdmin(!admin)} className={`px-3 py-2 rounded border ${admin ? 'bg-red-900/80 border-red-600 text-red-300' : 'bg-stone-900/90 border-stone-700 text-stone-400'}`}>
+          {admin ? '🔓 Admin' : '🔒'}
+        </button>
+      </div>
+
+      {/* Province panel */}
+      {selected && (
+        <div className="absolute top-16 right-4 w-72 bg-stone-900/95 rounded border border-stone-700 shadow-xl z-20 overflow-hidden">
+          <div className="p-3 border-b border-stone-700" style={{ background: color(selected) + '30' }}>
+            <h2 className="text-xl font-bold text-white">{PROVINCES[selected].name} {PROVINCES[selected].special === 'capital' && '👑'}</h2>
+            <p className="text-sm text-stone-300">Owner: <span style={{ color: color(selected) }}>{CLANS[provinces[selected].owner]?.name}</span></p>
+          </div>
+          <div className="p-3 space-y-3">
+            {PROVINCES[selected].resource && (
+              <div className="flex items-center gap-2 p-2 bg-stone-800/50 rounded">
+                <span className="text-xl">{RESOURCES[PROVINCES[selected].resource]?.icon}</span>
+                <span className="text-white">{RESOURCES[PROVINCES[selected].resource]?.name}</span>
+              </div>
+            )}
+            <div className="flex justify-between"><span className="text-stone-400">Armies:</span><span className="text-white font-bold">{provinces[selected].armies}</span></div>
+            <div><p className="text-stone-400 text-sm mb-1">Borders:</p>
+              <div className="flex flex-wrap gap-1">
+                {PROVINCES[selected].neighbors.map(n => <button key={n} onClick={() => setSelected(n)} className="text-xs px-2 py-1 rounded bg-stone-800 hover:bg-stone-700 text-stone-300">{PROVINCES[n]?.name}</button>)}
               </div>
             </div>
-          )}
-          
-          {/* Armies */}
-          <div className="flex items-center justify-between">
-            <span className="text-gray-400">Armies Stationed:</span>
-            <span className="text-white font-bold text-lg">{prov.armies}</span>
-          </div>
-          
-          {/* Buildings */}
-          <div>
-            <p className="text-gray-400 mb-2">Buildings:</p>
-            {prov.buildings.length === 0 && !prov.constructing ? (
-              <p className="text-gray-500 text-sm italic">No buildings</p>
-            ) : (
-              <div className="space-y-1">
-                {prov.buildings.map((b, i) => (
-                  <div key={i} className="flex items-center gap-2 text-sm">
-                    <span>{BUILDINGS[b]?.icon}</span>
-                    <span className="text-white">{BUILDINGS[b]?.name}</span>
-                  </div>
-                ))}
-                {prov.constructing && (
-                  <div className="flex items-center gap-2 text-sm text-yellow-400">
-                    <span>🔨</span>
-                    <span>{BUILDINGS[prov.constructing.type]?.name}</span>
-                    <span className="text-xs">({prov.constructing.daysLeft} days)</span>
+            {provinces[selected].owner === clan && (
+              <div className="pt-2 border-t border-stone-700 space-y-2">
+                {!provinces[selected].constructing && <button onClick={() => setBuildMenu(!buildMenu)} className="w-full py-2 bg-amber-700 hover:bg-amber-600 rounded text-white">🏗️ Build</button>}
+                {buildMenu && (
+                  <div className="grid grid-cols-2 gap-1">
+                    {Object.entries(BUILDINGS).map(([id, b]) => <button key={id} onClick={() => build(id)} className="p-2 bg-stone-800 hover:bg-stone-700 rounded text-sm text-white">{b.icon} {b.name}</button>)}
                   </div>
                 )}
+                {provinces[selected].armies > 0 && !selArmy && <button onClick={e => clickArmy(e, selected)} className="w-full py-2 bg-blue-700 hover:bg-blue-600 rounded text-white">🎌 Move Army</button>}
+              </div>
+            )}
+            {admin && (
+              <div className="pt-2 border-t border-red-900">
+                <p className="text-red-400 text-xs mb-1">Admin: Change Owner</p>
+                <select value={provinces[selected].owner} onChange={e => changeOwner(selected, e.target.value)} className="w-full p-2 bg-stone-800 text-white rounded border border-stone-600">
+                  {Object.entries(CLANS).map(([id, c]) => <option key={id} value={id}>{c.name}</option>)}
+                </select>
               </div>
             )}
           </div>
-          
-          {/* Neighbors */}
-          <div>
-            <p className="text-gray-400 mb-1">Borders:</p>
-            <div className="flex flex-wrap gap-1">
-              {baseProv.neighbors.map(n => (
-                <button
-                  key={n}
-                  onClick={() => setSelectedProvince(n)}
-                  className="text-xs px-2 py-1 rounded bg-gray-800 hover:bg-gray-700 text-gray-300"
-                >
-                  {PROVINCES[n]?.name}
-                </button>
-              ))}
-            </div>
+        </div>
+      )}
+
+      {/* Move confirmation */}
+      {selArmy && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-stone-900/95 rounded border border-stone-700 p-4 z-20">
+          <p className="text-white mb-2">Move from <span className="text-blue-400 font-bold">{PROVINCES[selArmy.prov]?.name}</span>
+            {moveTarget && <> → <span className="text-green-400 font-bold">{PROVINCES[moveTarget]?.name}</span></>}
+          </p>
+          {!moveTarget && <p className="text-amber-400 text-sm mb-2">Click neighboring province</p>}
+          <div className="flex gap-2">
+            {moveTarget && <button onClick={confirmMove} className="px-4 py-2 bg-green-700 hover:bg-green-600 rounded text-white">✓ Confirm</button>}
+            <button onClick={() => { setSelArmy(null); setMoveTarget(null); }} className="px-4 py-2 bg-stone-700 hover:bg-stone-600 rounded text-white">✕ Cancel</button>
           </div>
-          
-          {/* Actions for owned provinces */}
-          {prov.owner === currentClan && (
-            <div className="pt-3 border-t border-gray-700 space-y-2">
-              {/* Build button */}
-              {!prov.constructing && (
-                <button
-                  onClick={() => setShowBuildMenu(!showBuildMenu)}
-                  className="w-full py-2 px-4 bg-amber-600 hover:bg-amber-500 rounded text-white font-medium flex items-center justify-center gap-2"
-                >
-                  🏗️ Build Structure
-                </button>
-              )}
-              
-              {/* Build menu */}
-              {showBuildMenu && (
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(BUILDINGS).map(([id, building]) => (
-                    <button
-                      key={id}
-                      onClick={() => startBuilding(id)}
-                      className="p-2 bg-gray-800 hover:bg-gray-700 rounded text-left"
-                    >
-                      <div className="flex items-center gap-1">
-                        <span>{building.icon}</span>
-                        <span className="text-white text-sm">{building.name}</span>
-                      </div>
-                      <p className="text-xs text-gray-400">{building.buildTime} days</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-              
-              {/* Move army */}
-              {prov.armies > 0 && !selectedArmy && (
-                <button
-                  onClick={(e) => handleArmyClick(e, selectedProvince)}
-                  className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-500 rounded text-white font-medium flex items-center justify-center gap-2"
-                >
-                  🎌 Move Army
-                </button>
-              )}
-            </div>
-          )}
-          
-          {/* Admin controls */}
-          {isAdmin && (
-            <div className="pt-3 border-t border-gray-700">
-              <p className="text-red-400 text-sm mb-2">⚠️ Admin Controls</p>
-              <select
-                className="w-full p-2 bg-gray-800 text-white rounded mb-2"
-                value={prov.owner}
-                onChange={(e) => resolveBattle(selectedProvince, e.target.value)}
-              >
-                {Object.entries(clans).map(([id, clan]) => (
-                  <option key={id} value={id}>{clan.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
-      </div>
-    );
-  };
+      )}
 
-  // Movement confirmation panel
-  const renderMovementPanel = () => {
-    if (!selectedArmy) return null;
-    
-    return (
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900/95 rounded-lg border border-gray-700 p-4 shadow-xl">
-        <p className="text-white mb-3">
-          Moving army from <span className="font-bold text-blue-400">{PROVINCES[selectedArmy.province]?.name}</span>
-          {movementTarget && (
-            <span> to <span className="font-bold text-green-400">{PROVINCES[movementTarget]?.name}</span></span>
-          )}
-        </p>
-        {!movementTarget && (
-          <p className="text-yellow-400 text-sm mb-3">Click a neighboring province to set destination</p>
-        )}
-        <div className="flex gap-2">
-          {movementTarget && (
-            <button
-              onClick={confirmMovement}
-              className="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white font-medium"
-            >
-              ✓ Confirm Move
-            </button>
-          )}
-          <button
-            onClick={cancelMovement}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white"
-          >
-            ✕ Cancel
-          </button>
+      {/* Planned moves */}
+      {moves.filter(m => m.clan === clan).length > 0 && (
+        <div className="absolute bottom-4 right-4 w-56 bg-stone-900/95 rounded border border-stone-700 z-20">
+          <div className="p-2 border-b border-stone-700"><h3 className="text-white font-bold text-sm">📋 Orders</h3></div>
+          <div className="p-2 space-y-1 max-h-32 overflow-y-auto">
+            {moves.filter(m => m.clan === clan).map(m => (
+              <div key={m.id} className="flex items-center justify-between bg-stone-800 rounded px-2 py-1">
+                <span className="text-xs text-white">{PROVINCES[m.from]?.name} → {PROVINCES[m.to]?.name}</span>
+                <button onClick={() => setMoves(moves.filter(x => x.id !== m.id))} className="text-red-400 text-xs">✕</button>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    );
-  };
+      )}
 
-  // Planned moves panel
-  const renderPlannedMovesPanel = () => {
-    if (plannedMoves.length === 0) return null;
-    
-    const myMoves = plannedMoves.filter(m => m.clan === currentClan);
-    if (myMoves.length === 0) return null;
-    
-    return (
-      <div className="absolute bottom-4 right-4 w-64 bg-gray-900/95 rounded-lg border border-gray-700 shadow-xl">
-        <div className="p-3 border-b border-gray-700">
-          <h3 className="text-white font-bold">📋 Planned Moves</h3>
-        </div>
-        <div className="p-3 space-y-2 max-h-48 overflow-y-auto">
-          {myMoves.map(move => (
-            <div key={move.id} className="flex items-center justify-between bg-gray-800 rounded p-2">
-              <span className="text-sm text-white">
-                {PROVINCES[move.from]?.name} → {PROVINCES[move.to]?.name}
-              </span>
-              <button
-                onClick={() => removePlannedMove(move.id)}
-                className="text-red-400 hover:text-red-300 text-xs"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Legend */}
+      <div className="absolute bottom-4 left-4 bg-stone-900/90 rounded border border-stone-700 p-2 z-20">
+        <p className="text-stone-400 text-xs mb-1">Clans</p>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          {Object.entries(CLANS).filter(([id]) => id !== 'uncontrolled').map(([id, c]) => (
+            <div key={id} className="flex items-center gap-1"><div className="w-2 h-2 rounded" style={{ background: c.color }} /><span className="text-xs text-stone-300">{c.name}</span></div>
           ))}
         </div>
-      </div>
-    );
-  };
-
-  // Top bar with game info
-  const renderTopBar = () => (
-    <div className="absolute top-4 left-4 flex items-center gap-4">
-      {/* Week indicator */}
-      <div className="bg-gray-900/95 rounded-lg border border-gray-700 px-4 py-2">
-        <p className="text-gray-400 text-xs">Current Week</p>
-        <p className="text-white font-bold text-xl">Week {currentWeek}</p>
-      </div>
-      
-      {/* Clan selector */}
-      <div className="bg-gray-900/95 rounded-lg border border-gray-700 px-4 py-2">
-        <p className="text-gray-400 text-xs">Playing as</p>
-        <select
-          value={currentClan}
-          onChange={(e) => setCurrentClan(e.target.value)}
-          className="bg-transparent text-white font-bold text-lg focus:outline-none cursor-pointer"
-          style={{ color: clans[currentClan]?.color }}
-        >
-          {Object.entries(clans).filter(([id]) => id !== 'uncontrolled').map(([id, clan]) => (
-            <option key={id} value={id} style={{ color: clan.color, backgroundColor: '#1F2937' }}>
-              {clan.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      
-      {/* Admin toggle */}
-      <button
-        onClick={() => setIsAdmin(!isAdmin)}
-        className={`px-4 py-2 rounded-lg border ${isAdmin ? 'bg-red-900 border-red-600 text-red-300' : 'bg-gray-900/95 border-gray-700 text-gray-400'}`}
-      >
-        {isAdmin ? '🔓 Admin Mode' : '🔒 Admin'}
-      </button>
-    </div>
-  );
-
-  // Clan legend
-  const renderLegend = () => (
-    <div className="absolute bottom-4 left-4 bg-gray-900/95 rounded-lg border border-gray-700 p-3">
-      <h3 className="text-white font-bold text-sm mb-2">Clans</h3>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        {Object.entries(clans).filter(([id]) => id !== 'uncontrolled').map(([id, clan]) => (
-          <div key={id} className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: clan.color }} />
-            <span className="text-xs text-gray-300">{clan.name}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="w-full h-screen bg-gray-950 relative overflow-hidden">
-      {/* Map SVG */}
-      <svg
-        viewBox="0 0 800 500"
-        className="w-full h-full"
-        style={{ transform: `scale(${mapZoom}) translate(${mapOffset.x}px, ${mapOffset.y}px)` }}
-      >
-        {/* Background */}
-        <rect x="0" y="0" width="800" height="500" fill="#1a1a2e" />
-        
-        {/* Water pattern */}
-        <defs>
-          <pattern id="water" patternUnits="userSpaceOnUse" width="20" height="20">
-            <rect width="20" height="20" fill="#0c1929" />
-            <circle cx="10" cy="10" r="1" fill="#1a3a5c" opacity="0.3" />
-          </pattern>
-        </defs>
-        <rect x="0" y="0" width="800" height="500" fill="url(#water)" />
-        
-        {/* Japan landmass outline (simplified) */}
-        <path
-          d="M30,90 Q50,65 100,62 Q150,55 180,50 Q220,48 280,44 Q320,40 380,38 
-             Q420,40 480,42 Q540,38 600,30 Q680,22 720,28 Q740,38 730,50 
-             Q720,65 700,75 Q680,80 650,78 Q620,75 580,72 Q540,70 500,72 
-             Q460,74 420,78 Q380,80 340,82 Q300,80 260,78 Q220,76 180,78 
-             Q140,82 100,85 Q60,90 30,90 Z"
-          fill="#2d3436"
-          stroke="#4a5568"
-          strokeWidth="2"
-          opacity="0.5"
-        />
-        
-        {/* Province connections (roads) */}
-        {Object.entries(PROVINCES).map(([id, prov]) =>
-          prov.neighbors.map(neighborId => {
-            const neighbor = PROVINCES[neighborId];
-            if (id < neighborId) { // Avoid drawing twice
-              return (
-                <line
-                  key={`${id}-${neighborId}`}
-                  x1={prov.x * 8}
-                  y1={prov.y * 5}
-                  x2={neighbor.x * 8}
-                  y2={neighbor.y * 5}
-                  stroke="#374151"
-                  strokeWidth={1}
-                  opacity={0.5}
-                />
-              );
-            }
-            return null;
-          })
-        )}
-        
-        {/* Planned movement arrows */}
-        {renderPlannedMoves()}
-        
-        {/* Current movement arrow */}
-        {renderCurrentMovement()}
-        
-        {/* Provinces */}
-        {Object.keys(PROVINCES).map(renderProvince)}
-      </svg>
-      
-      {/* UI Overlays */}
-      {renderTopBar()}
-      {renderProvinceInfo()}
-      {renderMovementPanel()}
-      {renderPlannedMovesPanel()}
-      {renderLegend()}
-      
-      {/* Title */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2">
-        <h1 className="text-3xl font-bold text-white tracking-wider" style={{ fontFamily: 'serif', textShadow: '2px 2px 4px #000' }}>
-          戦国 <span className="text-lg text-gray-400">SENGOKU</span>
-        </h1>
-      </div>
-      
-      {/* Zoom controls */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2">
-        <button
-          onClick={() => setMapZoom(Math.min(2, mapZoom + 0.1))}
-          className="w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded text-white text-xl"
-        >
-          +
-        </button>
-        <button
-          onClick={() => setMapZoom(Math.max(0.5, mapZoom - 0.1))}
-          className="w-10 h-10 bg-gray-800 hover:bg-gray-700 rounded text-white text-xl"
-        >
-          −
-        </button>
       </div>
     </div>
   );
