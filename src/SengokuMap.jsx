@@ -555,9 +555,9 @@ export default function SengokuMap() {
             
             return (
               <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
-                {/* Province name - only show when zoomed in */}
+                {/* Province name - only show when zoomed in, always centered */}
                 {isZoomedIn && (
-                  <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
+                  <text x={center.x} y={center.y}
                     textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill="#fff" fontFamily="serif"
                     letterSpacing="0.5"
                     style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
@@ -565,12 +565,13 @@ export default function SengokuMap() {
                   </text>
                 )}
                 
-                {/* Army indicators - always visible */}
+                {/* Army indicators - top right of province, smaller */}
                 {isOwned && prov.armies > 0 && (
                   <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
                     style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
-                    <circle cx={center.x} cy={center.y + (isZoomedIn ? 6 : 0)} r="8" fill="#1e293b" stroke={prov.owner === clan ? '#fbbf24' : '#64748b'} strokeWidth="1.5" filter="url(#shadow)" />
-                    <text x={center.x} y={center.y + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="bold" fill="#fff">
+                    <circle cx={center.x + 15} cy={center.y - 12} r="6" fill={CLANS[prov.owner]?.color || '#1e293b'} stroke={prov.owner === clan ? '#fbbf24' : '#000'} strokeWidth="1.5" filter="url(#shadow)" />
+                    <text x={center.x + 15} y={center.y - 11} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff"
+                      style={{ textShadow: '0 0 2px #000' }}>
                       {prov.armies}
                     </text>
                   </g>
