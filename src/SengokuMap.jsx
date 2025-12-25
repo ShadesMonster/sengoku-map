@@ -515,7 +515,7 @@ export default function SengokuMap() {
           </defs>
 
           {/* Background image */}
-          <image href="/japan-map.jpg" x="0" y="0" width="732" height="777" opacity="0.3" />
+          <image href="/japan-map.jpg" x="-625" y="-150" width="1920" height="1080" opacity="0.5" />
 
           {/* Province paths */}
           {sortedPathData.map((path) => {
@@ -551,32 +551,39 @@ export default function SengokuMap() {
             if (!provinces[provId]) return null;
             const prov = provinces[provId];
             const isOwned = prov.owner !== 'uncontrolled';
+            const isZoomedIn = viewBox.w < 500; // Show labels only when zoomed in
             
             return (
               <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
-                <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
-                  textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="600" fill="#fff" fontFamily="serif"
-                  style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
-                  {PROVINCE_DATA[provId]?.name}
-                </text>
+                {/* Province name - only show when zoomed in */}
+                {isZoomedIn && (
+                  <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
+                    textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="600" fill="#fff" fontFamily="serif"
+                    style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
+                    {PROVINCE_DATA[provId]?.name}
+                  </text>
+                )}
                 
+                {/* Army indicators - always visible */}
                 {isOwned && prov.armies > 0 && (
                   <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
                     style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
-                    <circle cx={center.x} cy={center.y + 6} r="8" fill="#1e293b" stroke={prov.owner === clan ? '#fbbf24' : '#64748b'} strokeWidth="1.5" filter="url(#shadow)" />
-                    <text x={center.x} y={center.y + 7} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="bold" fill="#fff">
+                    <circle cx={center.x} cy={center.y + (isZoomedIn ? 6 : 0)} r="8" fill="#1e293b" stroke={prov.owner === clan ? '#fbbf24' : '#64748b'} strokeWidth="1.5" filter="url(#shadow)" />
+                    <text x={center.x} y={center.y + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="bold" fill="#fff">
                       {prov.armies}
                     </text>
                   </g>
                 )}
                 
-                {PROVINCE_DATA[provId]?.resource && (
+                {/* Resource icons - only show when zoomed in */}
+                {isZoomedIn && PROVINCE_DATA[provId]?.resource && (
                   <text x={center.x + 18} y={center.y - 8} fontSize="8" style={{ pointerEvents: 'none' }}>
                     {RESOURCES[PROVINCE_DATA[provId].resource]?.icon}
                   </text>
                 )}
                 
-                {PROVINCE_DATA[provId]?.special === 'capital' && (
+                {/* Capital marker - only show when zoomed in */}
+                {isZoomedIn && PROVINCE_DATA[provId]?.special === 'capital' && (
                   <text x={center.x} y={center.y + 18} textAnchor="middle" fontSize="10">👑</text>
                 )}
               </g>
