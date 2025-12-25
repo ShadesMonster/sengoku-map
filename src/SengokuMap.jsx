@@ -555,9 +555,9 @@ export default function SengokuMap() {
             
             return (
               <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
-                {/* Province name - only show when zoomed in, always centered */}
+                {/* Province name - only show when zoomed in */}
                 {isZoomedIn && (
-                  <text x={center.x} y={center.y}
+                  <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 6 : 0)}
                     textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill="#fff" fontFamily="serif"
                     letterSpacing="0.5"
                     style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
@@ -565,12 +565,26 @@ export default function SengokuMap() {
                   </text>
                 )}
                 
-                {/* Army indicators - top right of province, smaller */}
+                {/* Army indicators - small banner below name */}
                 {isOwned && prov.armies > 0 && (
                   <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
                     style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
-                    <circle cx={center.x + 15} cy={center.y - 12} r="6" fill={CLANS[prov.owner]?.color || '#1e293b'} stroke={prov.owner === clan ? '#fbbf24' : '#000'} strokeWidth="1.5" filter="url(#shadow)" />
-                    <text x={center.x + 15} y={center.y - 11} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff"
+                    {/* Banner shape */}
+                    <path 
+                      d={`M${center.x - 6} ${center.y + (isZoomedIn ? 2 : -4)} 
+                          h12 
+                          v8 
+                          l-3 -2 
+                          l-3 2 
+                          l-3 -2 
+                          l-3 2 
+                          v-8 z`}
+                      fill={CLANS[prov.owner]?.color || '#1e293b'} 
+                      stroke={prov.owner === clan ? '#fbbf24' : '#000'} 
+                      strokeWidth="1"
+                      filter="url(#shadow)"
+                    />
+                    <text x={center.x} y={center.y + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff"
                       style={{ textShadow: '0 0 2px #000' }}>
                       {prov.armies}
                     </text>
