@@ -514,6 +514,9 @@ export default function SengokuMap() {
             </marker>
           </defs>
 
+          {/* Background image */}
+          <image href="/japan-map.jpg" x="0" y="0" width="732" height="777" opacity="0.3" />
+
           {/* Province paths */}
           {sortedPathData.map((path) => {
             const idx = path.index;
