@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // Path index to province ID mapping (from your identification)
+// 4 (Amakusa) is now merged into higo
 const PATH_TO_PROVINCE = {
   0: 'kii',
   1: 'satsuma',
   2: 'hyuga',
   3: 'higo',
-  // 4: merged into higo (Amakusa)
+  4: 'higo', // Amakusa merged into Higo
   5: 'osumi',
   6: 'chikugo',
   7: 'kozuke',
@@ -80,6 +81,12 @@ const PATH_TO_PROVINCE = {
   75: 'yezo',
   76: 'yezo',
   77: 'yezo',
+};
+
+// Track which path index is the "primary" one for label placement
+const PRIMARY_PATH_FOR_PROVINCE = {
+  higo: 3,  // Use path 3 for Higo label, not 4
+  yezo: 69, // Use path 69 for Yezo label
 };
 
 // Province data with neighbors
@@ -205,8 +212,9 @@ const RESOURCES = {
 };
 
 export default function SengokuMap() {
-  const [svgContent, setSvgContent] = useState('');
+  const svgRef = useRef(null);
   const [pathData, setPathData] = useState([]);
+  const [provinceCenters, setProvinceCenters] = useState({});
   const [selected, setSelected] = useState(null);
   const [hovered, setHovered] = useState(null);
   const [week, setWeek] = useState(1);
@@ -230,7 +238,6 @@ export default function SengokuMap() {
     fetch('/japan-provinces.svg')
       .then(res => res.text())
       .then(svg => {
-        setSvgContent(svg);
         const parser = new DOMParser();
         const doc = parser.parseFromString(svg, 'image/svg+xml');
         const paths = doc.querySelectorAll('path');
@@ -241,31 +248,52 @@ export default function SengokuMap() {
           const id = path.getAttribute('id');
           const style = path.getAttribute('style') || '';
           
+          // Skip empty or water paths
           if (!d || d.trim() === '' || style.includes('fill:#daf0fd')) return;
           
-          const bbox = estimateBBox(d);
-          extracted.push({ index: extracted.length, id, d, centerX: bbox.centerX, centerY: bbox.centerY });
+          extracted.push({ index: extracted.length, id, d });
         });
         
         setPathData(extracted);
       });
   }, []);
 
-  function estimateBBox(d) {
-    const numbers = d.match(/-?\d+\.?\d*/g) || [];
-    const coords = [];
-    for (let i = 0; i < numbers.length - 1; i += 2) {
-      coords.push({ x: parseFloat(numbers[i]), y: parseFloat(numbers[i + 1]) });
-    }
-    if (coords.length === 0) return { centerX: 0, centerY: 0 };
+  // Calculate actual bounding boxes after paths are rendered
+  useEffect(() => {
+    if (!svgRef.current || pathData.length === 0) return;
     
-    const xs = coords.map(c => c.x);
-    const ys = coords.map(c => c.y);
-    return {
-      centerX: (Math.min(...xs) + Math.max(...xs)) / 2,
-      centerY: (Math.min(...ys) + Math.max(...ys)) / 2
-    };
-  }
+    const centers = {};
+    const provincePathGroups = {};
+    
+    // Group paths by province
+    pathData.forEach((_, idx) => {
+      const provId = PATH_TO_PROVINCE[idx];
+      if (!provId) return;
+      if (!provincePathGroups[provId]) provincePathGroups[provId] = [];
+      provincePathGroups[provId].push(idx);
+    });
+    
+    // Calculate center for each province using actual rendered bboxes
+    Object.entries(provincePathGroups).forEach(([provId, pathIndices]) => {
+      // Use primary path if specified, otherwise use first path
+      const primaryIdx = PRIMARY_PATH_FOR_PROVINCE[provId] ?? pathIndices[0];
+      const pathEl = svgRef.current.querySelector(`#province-path-${primaryIdx}`);
+      
+      if (pathEl) {
+        try {
+          const bbox = pathEl.getBBox();
+          centers[provId] = {
+            x: bbox.x + bbox.width / 2,
+            y: bbox.y + bbox.height / 2
+          };
+        } catch (e) {
+          // getBBox can fail for hidden elements
+        }
+      }
+    });
+    
+    setProvinceCenters(centers);
+  }, [pathData]);
 
   const getProvinceId = (pathIndex) => PATH_TO_PROVINCE[pathIndex] || null;
   
@@ -313,14 +341,20 @@ export default function SengokuMap() {
     }
   };
 
-  // Get province center for a given province ID
-  const getProvinceCenter = (provId) => {
+  // Check if this path index should show the label (avoid duplicates for merged provinces)
+  const shouldShowLabel = (pathIndex, provId) => {
+    if (!provId) return false;
+    const primary = PRIMARY_PATH_FOR_PROVINCE[provId];
+    if (primary !== undefined) {
+      return pathIndex === primary;
+    }
+    // For non-merged provinces, show label on first occurrence
     for (let i = 0; i < pathData.length; i++) {
       if (PATH_TO_PROVINCE[i] === provId) {
-        return { x: pathData[i].centerX, y: pathData[i].centerY };
+        return i === pathIndex;
       }
     }
-    return null;
+    return false;
   };
 
   return (
@@ -364,6 +398,7 @@ export default function SengokuMap() {
 
         {/* SVG Map */}
         <svg
+          ref={svgRef}
           viewBox="0 0 732 777"
           className="w-full h-full"
           style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}
@@ -389,12 +424,13 @@ export default function SengokuMap() {
             const provId = getProvinceId(idx);
             const isSelected = provId === selected;
             const isHovered = hovered === idx;
-            const isValidTarget = selectedArmy && provId && provinces[selectedArmy]?.neighbors?.includes(provId);
+            const isValidTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
             const isArmySelected = provId === selectedArmy;
             
             return (
               <path
                 key={path.id || idx}
+                id={`province-path-${idx}`}
                 d={path.d}
                 fill={provId ? getColor(provId) : '#64748b'}
                 fillOpacity={isSelected || isArmySelected ? 0.95 : isHovered ? 0.85 : 0.7}
@@ -409,29 +445,25 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* Province labels */}
-          {pathData.map((path, idx) => {
-            const provId = getProvinceId(idx);
-            if (!provId || !provinces[provId]) return null;
-            
-            // Don't duplicate labels for Yezo islands
-            if (provId === 'yezo' && idx !== 69) return null;
+          {/* Province labels - rendered using calculated centers */}
+          {Object.entries(provinceCenters).map(([provId, center]) => {
+            if (!provinces[provId]) return null;
             
             const prov = provinces[provId];
             const isOwned = prov.owner !== 'uncontrolled';
             
             return (
-              <g key={`label-${idx}`} style={{ pointerEvents: 'none' }}>
+              <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
                 {/* Province name */}
                 <text
-                  x={path.centerX}
-                  y={path.centerY - (isOwned && prov.armies > 0 ? 12 : 0)}
+                  x={center.x}
+                  y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fontSize="9"
+                  fontSize="8"
                   fontWeight="600"
                   fill="#fff"
-                  style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}
+                  style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}
                 >
                   {PROVINCE_DATA[provId]?.name}
                 </text>
@@ -443,20 +475,20 @@ export default function SengokuMap() {
                     style={{ cursor: prov.owner === clan ? 'pointer' : 'default', pointerEvents: 'auto' }}
                   >
                     <circle
-                      cx={path.centerX}
-                      cy={path.centerY + 8}
-                      r="10"
+                      cx={center.x}
+                      cy={center.y + 6}
+                      r="8"
                       fill="#1e293b"
                       stroke={prov.owner === clan ? '#fbbf24' : '#64748b'}
-                      strokeWidth="2"
+                      strokeWidth="1.5"
                       filter="url(#shadow)"
                     />
                     <text
-                      x={path.centerX}
-                      y={path.centerY + 9}
+                      x={center.x}
+                      y={center.y + 7}
                       textAnchor="middle"
                       dominantBaseline="middle"
-                      fontSize="11"
+                      fontSize="9"
                       fontWeight="bold"
                       fill="#fff"
                     >
@@ -468,9 +500,9 @@ export default function SengokuMap() {
                 {/* Resource icon */}
                 {PROVINCE_DATA[provId]?.resource && (
                   <text
-                    x={path.centerX + 25}
-                    y={path.centerY - 8}
-                    fontSize="10"
+                    x={center.x + 18}
+                    y={center.y - 8}
+                    fontSize="8"
                     style={{ pointerEvents: 'none' }}
                   >
                     {RESOURCES[PROVINCE_DATA[provId].resource]?.icon}
@@ -480,10 +512,10 @@ export default function SengokuMap() {
                 {/* Capital marker */}
                 {PROVINCE_DATA[provId]?.special === 'capital' && (
                   <text
-                    x={path.centerX}
-                    y={path.centerY + 22}
+                    x={center.x}
+                    y={center.y + 18}
                     textAnchor="middle"
-                    fontSize="12"
+                    fontSize="10"
                   >
                     👑
                   </text>
@@ -494,8 +526,8 @@ export default function SengokuMap() {
 
           {/* Movement arrows */}
           {moves.filter(m => m.clan === clan).map(move => {
-            const from = getProvinceCenter(move.from);
-            const to = getProvinceCenter(move.to);
+            const from = provinceCenters[move.from];
+            const to = provinceCenters[move.to];
             if (!from || !to) return null;
             
             return (
