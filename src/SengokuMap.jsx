@@ -1,97 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Path index to province ID mapping (from your identification)
-// 4 (Amakusa) is now merged into higo
+// Path index to province ID mapping
 const PATH_TO_PROVINCE = {
-  0: 'kii',
-  1: 'satsuma',
-  2: 'hyuga',
-  3: 'higo',
-  4: 'higo', // Amakusa merged into Higo
-  5: 'osumi',
-  6: 'chikugo',
-  7: 'kozuke',
-  8: 'hizen',
-  9: 'chikuzen',
-  10: 'buzen',
-  11: 'bungo',
-  12: 'iki',
-  13: 'tsushima',
-  14: 'tosa',
-  15: 'awa_shikoku',
-  16: 'sanuki',
-  17: 'iyo',
-  18: 'awaji',
-  19: 'nagato',
-  20: 'suo',
-  21: 'aki',
-  22: 'bingo',
-  23: 'bitchu',
-  24: 'bizen',
-  25: 'mimasaka',
-  26: 'harima',
-  27: 'iwami',
-  28: 'izumo',
-  29: 'hoki',
-  30: 'oki',
-  31: 'inaba',
-  32: 'tajima',
-  33: 'tamba',
-  34: 'tango',
-  35: 'settsu',
-  36: 'izumi',
-  37: 'yamato',
-  38: 'yamashiro',
-  39: 'kawachi',
-  40: 'wakasa',
-  41: 'echizen',
-  42: 'kaga',
-  43: 'noto',
-  44: 'etchu',
-  45: 'echigo',
-  46: 'sado',
-  47: 'iga',
-  48: 'ise',
-  49: 'shima',
-  50: 'owari',
-  51: 'mikawa',
-  52: 'totomi',
-  53: 'suruga',
-  54: 'izu',
-  55: 'sagami',
-  56: 'kai',
-  57: 'musashi',
-  58: 'awa_kanto',
-  59: 'kazusa',
-  60: 'shimosa',
-  61: 'hitachi',
-  62: 'omi',
-  63: 'mino',
-  64: 'hida',
-  65: 'shinano',
-  66: 'shimotsuke',
-  67: 'mutsu',
-  68: 'dewa',
-  69: 'yezo',
-  70: 'yezo',
-  71: 'yezo',
-  72: 'yezo',
-  73: 'yezo',
-  74: 'yezo',
-  75: 'yezo',
-  76: 'yezo',
-  77: 'yezo',
+  0: 'kii', 1: 'satsuma', 2: 'hyuga', 3: 'higo', 4: 'higo',
+  5: 'osumi', 6: 'chikugo', 7: 'kozuke', 8: 'hizen', 9: 'chikuzen',
+  10: 'buzen', 11: 'bungo', 12: 'iki', 13: 'tsushima', 14: 'tosa',
+  15: 'awa_shikoku', 16: 'sanuki', 17: 'iyo', 18: 'awaji', 19: 'nagato',
+  20: 'suo', 21: 'aki', 22: 'bingo', 23: 'bitchu', 24: 'bizen',
+  25: 'mimasaka', 26: 'harima', 27: 'iwami', 28: 'izumo', 29: 'hoki',
+  30: 'oki', 31: 'inaba', 32: 'tajima', 33: 'tamba', 34: 'tango',
+  35: 'settsu', 36: 'izumi', 37: 'yamato', 38: 'yamashiro', 39: 'kawachi',
+  40: 'wakasa', 41: 'echizen', 42: 'kaga', 43: 'noto', 44: 'etchu',
+  45: 'echigo', 46: 'sado', 47: 'iga', 48: 'ise', 49: 'shima',
+  50: 'owari', 51: 'mikawa', 52: 'totomi', 53: 'suruga', 54: 'izu',
+  55: 'sagami', 56: 'kai', 57: 'musashi', 58: 'awa_kanto', 59: 'kazusa',
+  60: 'shimosa', 61: 'hitachi', 62: 'omi', 63: 'mino', 64: 'hida',
+  65: 'shinano', 66: 'shimotsuke', 67: 'mutsu', 68: 'dewa',
+  69: 'yezo', 70: 'yezo', 71: 'yezo', 72: 'yezo', 73: 'yezo', 74: 'yezo', 75: 'yezo', 76: 'yezo', 77: 'yezo',
 };
 
-// Track which path index is the "primary" one for label placement
-const PRIMARY_PATH_FOR_PROVINCE = {
-  higo: 3,  // Use path 3 for Higo label, not 4
-  yezo: 69, // Use path 69 for Yezo label
-};
+const PRIMARY_PATH_FOR_PROVINCE = { higo: 3, yezo: 69 };
 
-// Province data with neighbors
 const PROVINCE_DATA = {
-  // KYUSHU
   satsuma: { name: 'Satsuma', resource: 'smithing', neighbors: ['osumi', 'higo'] },
   osumi: { name: 'Osumi', resource: 'farming', neighbors: ['satsuma', 'hyuga'] },
   hyuga: { name: 'Hyuga', resource: 'farming', neighbors: ['osumi', 'higo', 'bungo'] },
@@ -103,14 +33,10 @@ const PROVINCE_DATA = {
   hizen: { name: 'Hizen', resource: 'naval', neighbors: ['higo', 'chikugo', 'chikuzen', 'iki'] },
   iki: { name: 'Iki', resource: 'naval', neighbors: ['hizen', 'tsushima'] },
   tsushima: { name: 'Tsushima', resource: 'naval', neighbors: ['iki'] },
-
-  // SHIKOKU
   tosa: { name: 'Tosa', resource: 'forest', neighbors: ['iyo', 'sanuki', 'awa_shikoku'] },
   iyo: { name: 'Iyo', resource: 'farming', neighbors: ['tosa', 'sanuki'] },
   sanuki: { name: 'Sanuki', resource: 'stone', neighbors: ['tosa', 'iyo', 'awa_shikoku'] },
   awa_shikoku: { name: 'Awa', resource: 'horses', neighbors: ['tosa', 'sanuki'] },
-
-  // CHUGOKU
   nagato: { name: 'Nagato', resource: 'farming', neighbors: ['suo', 'iwami', 'buzen', 'chikuzen'] },
   suo: { name: 'Suo', resource: 'horses', neighbors: ['nagato', 'aki', 'iwami'] },
   aki: { name: 'Aki', resource: 'hallowed', neighbors: ['suo', 'bingo', 'iwami'] },
@@ -123,8 +49,6 @@ const PROVINCE_DATA = {
   hoki: { name: 'Hoki', resource: 'craftwork', neighbors: ['izumo', 'bingo', 'mimasaka', 'inaba'] },
   inaba: { name: 'Inaba', resource: 'naval', neighbors: ['hoki', 'mimasaka', 'harima', 'tajima'] },
   oki: { name: 'Oki', resource: 'fishing', neighbors: ['izumo'] },
-
-  // KINAI
   harima: { name: 'Harima', resource: 'farming', neighbors: ['bizen', 'mimasaka', 'inaba', 'tajima', 'tamba', 'settsu'] },
   tajima: { name: 'Tajima', resource: 'farming', neighbors: ['inaba', 'harima', 'tamba', 'tango'] },
   tamba: { name: 'Tamba', resource: 'farming', neighbors: ['tajima', 'harima', 'settsu', 'yamashiro', 'tango', 'wakasa'] },
@@ -137,8 +61,6 @@ const PROVINCE_DATA = {
   iga: { name: 'Iga', resource: 'ninja', neighbors: ['yamato', 'kii', 'ise', 'omi', 'yamashiro'] },
   izumi: { name: 'Izumi', resource: 'farming', neighbors: ['kawachi', 'kii', 'settsu'] },
   awaji: { name: 'Awaji', resource: 'fishing', neighbors: ['settsu'] },
-
-  // TOKAI
   omi: { name: 'Omi', resource: 'farming', neighbors: ['yamashiro', 'iga', 'ise', 'mino', 'wakasa', 'echizen'] },
   wakasa: { name: 'Wakasa', resource: 'farming', neighbors: ['tango', 'tamba', 'omi', 'echizen'] },
   echizen: { name: 'Echizen', resource: 'craftwork', neighbors: ['wakasa', 'omi', 'mino', 'kaga', 'hida'] },
@@ -150,18 +72,12 @@ const PROVINCE_DATA = {
   totomi: { name: 'Totomi', resource: 'farming', neighbors: ['mikawa', 'suruga', 'shinano'] },
   suruga: { name: 'Suruga', resource: 'philosophical', neighbors: ['totomi', 'izu', 'kai', 'shinano'] },
   izu: { name: 'Izu', resource: 'gold', neighbors: ['suruga', 'sagami'] },
-
-  // HOKURIKU
   kaga: { name: 'Kaga', resource: 'smithing', neighbors: ['echizen', 'noto', 'etchu', 'hida'] },
   noto: { name: 'Noto', resource: 'farming', neighbors: ['kaga', 'etchu'] },
   etchu: { name: 'Etchu', resource: 'farming', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'shinano'] },
   hida: { name: 'Hida', resource: 'forest', neighbors: ['echizen', 'kaga', 'etchu', 'mino', 'shinano'] },
-
-  // CENTRAL
   shinano: { name: 'Shinano', resource: 'stone', neighbors: ['mino', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'etchu', 'echigo', 'kozuke', 'musashi'] },
   kai: { name: 'Kai', resource: 'horses', neighbors: ['suruga', 'shinano', 'sagami', 'musashi'] },
-
-  // KANTO
   sagami: { name: 'Sagami', resource: 'smithing', neighbors: ['izu', 'kai', 'musashi'] },
   musashi: { name: 'Musashi', resource: 'farming', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa', 'shinano'] },
   kozuke: { name: 'Kozuke', resource: 'philosophical', neighbors: ['shinano', 'musashi', 'shimotsuke', 'echigo'] },
@@ -170,14 +86,10 @@ const PROVINCE_DATA = {
   kazusa: { name: 'Kazusa', resource: 'farming', neighbors: ['musashi', 'shimosa', 'awa_kanto'] },
   awa_kanto: { name: 'Awa', resource: 'naval', neighbors: ['kazusa'] },
   hitachi: { name: 'Hitachi', resource: 'craftwork', neighbors: ['shimotsuke', 'shimosa', 'dewa'] },
-
-  // TOHOKU
   echigo: { name: 'Echigo', resource: 'naval', neighbors: ['etchu', 'shinano', 'kozuke', 'dewa'] },
   sado: { name: 'Sado', resource: 'gold', neighbors: ['echigo'] },
   dewa: { name: 'Dewa', resource: 'stone', neighbors: ['echigo', 'shimotsuke', 'hitachi', 'mutsu'] },
   mutsu: { name: 'Mutsu', resource: 'horses', neighbors: ['dewa', 'yezo'] },
-
-  // HOKKAIDO
   yezo: { name: 'Yezo', resource: 'fishing', neighbors: ['mutsu'] },
 };
 
@@ -213,6 +125,7 @@ const RESOURCES = {
 
 export default function SengokuMap() {
   const svgRef = useRef(null);
+  const containerRef = useRef(null);
   const [pathData, setPathData] = useState([]);
   const [provinceCenters, setProvinceCenters] = useState({});
   const [selected, setSelected] = useState(null);
@@ -233,6 +146,11 @@ export default function SengokuMap() {
   const [admin, setAdmin] = useState(false);
   const [moves, setMoves] = useState([]);
   const [selectedArmy, setSelectedArmy] = useState(null);
+  
+  // Pan and zoom state
+  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 732, h: 777 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     fetch('/japan-provinces.svg')
@@ -247,10 +165,7 @@ export default function SengokuMap() {
           const d = path.getAttribute('d');
           const id = path.getAttribute('id');
           const style = path.getAttribute('style') || '';
-          
-          // Skip empty or water paths
           if (!d || d.trim() === '' || style.includes('fill:#daf0fd')) return;
-          
           extracted.push({ index: extracted.length, id, d });
         });
         
@@ -258,14 +173,12 @@ export default function SengokuMap() {
       });
   }, []);
 
-  // Calculate actual bounding boxes after paths are rendered
   useEffect(() => {
     if (!svgRef.current || pathData.length === 0) return;
     
     const centers = {};
     const provincePathGroups = {};
     
-    // Group paths by province
     pathData.forEach((_, idx) => {
       const provId = PATH_TO_PROVINCE[idx];
       if (!provId) return;
@@ -273,27 +186,69 @@ export default function SengokuMap() {
       provincePathGroups[provId].push(idx);
     });
     
-    // Calculate center for each province using actual rendered bboxes
     Object.entries(provincePathGroups).forEach(([provId, pathIndices]) => {
-      // Use primary path if specified, otherwise use first path
       const primaryIdx = PRIMARY_PATH_FOR_PROVINCE[provId] ?? pathIndices[0];
       const pathEl = svgRef.current.querySelector(`#province-path-${primaryIdx}`);
       
       if (pathEl) {
         try {
           const bbox = pathEl.getBBox();
-          centers[provId] = {
-            x: bbox.x + bbox.width / 2,
-            y: bbox.y + bbox.height / 2
-          };
-        } catch (e) {
-          // getBBox can fail for hidden elements
-        }
+          centers[provId] = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+        } catch (e) {}
       }
     });
     
     setProvinceCenters(centers);
   }, [pathData]);
+
+  // Pan and zoom handlers
+  const handleWheel = (e) => {
+    e.preventDefault();
+    const scaleFactor = e.deltaY > 0 ? 1.1 : 0.9;
+    
+    const svg = svgRef.current;
+    const rect = svg.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    
+    // Convert mouse position to SVG coordinates
+    const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w;
+    const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h;
+    
+    const newW = Math.max(200, Math.min(1500, viewBox.w * scaleFactor));
+    const newH = Math.max(200, Math.min(1600, viewBox.h * scaleFactor));
+    
+    // Adjust position to zoom toward mouse
+    const newX = svgX - (mouseX / rect.width) * newW;
+    const newY = svgY - (mouseY / rect.height) * newH;
+    
+    setViewBox({ x: newX, y: newY, w: newW, h: newH });
+  };
+
+  const handleMouseDown = (e) => {
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle click or shift+left click
+      setIsPanning(true);
+      setPanStart({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isPanning) return;
+    
+    const svg = svgRef.current;
+    const rect = svg.getBoundingClientRect();
+    
+    const dx = (e.clientX - panStart.x) * (viewBox.w / rect.width);
+    const dy = (e.clientY - panStart.y) * (viewBox.h / rect.height);
+    
+    setViewBox(prev => ({ ...prev, x: prev.x - dx, y: prev.y - dy }));
+    setPanStart({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => setIsPanning(false);
+
+  const resetView = () => setViewBox({ x: 0, y: 0, w: 732, h: 777 });
 
   const getProvinceId = (pathIndex) => PATH_TO_PROVINCE[pathIndex] || null;
   
@@ -302,11 +257,11 @@ export default function SengokuMap() {
     return CLANS[provinces[provId].owner]?.color || '#78716c';
   };
 
-  const handleProvinceClick = (index) => {
+  const handleProvinceClick = (index, e) => {
+    if (isPanning) return;
     const provId = getProvinceId(index);
     if (!provId) return;
     
-    // If selecting army movement target
     if (selectedArmy && provinces[selectedArmy].neighbors.includes(provId)) {
       setMoves([...moves, { id: Date.now(), from: selectedArmy, to: provId, clan }]);
       setSelectedArmy(null);
@@ -324,43 +279,42 @@ export default function SengokuMap() {
   };
 
   const cancelMove = () => setSelectedArmy(null);
-
   const removeMove = (moveId) => setMoves(moves.filter(m => m.id !== moveId));
-
-  const changeOwner = (id, newOwner) => {
-    setProvinces({ ...provinces, [id]: { ...provinces[id], owner: newOwner } });
-  };
-
-  const addArmy = (id) => {
-    setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies + 1 } });
-  };
-
+  const changeOwner = (id, newOwner) => setProvinces({ ...provinces, [id]: { ...provinces[id], owner: newOwner } });
+  const addArmy = (id) => setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies + 1 } });
   const removeArmy = (id) => {
-    if (provinces[id].armies > 0) {
-      setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies - 1 } });
-    }
+    if (provinces[id].armies > 0) setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies - 1 } });
   };
 
-  // Check if this path index should show the label (avoid duplicates for merged provinces)
-  const shouldShowLabel = (pathIndex, provId) => {
-    if (!provId) return false;
-    const primary = PRIMARY_PATH_FOR_PROVINCE[provId];
-    if (primary !== undefined) {
-      return pathIndex === primary;
-    }
-    // For non-merged provinces, show label on first occurrence
-    for (let i = 0; i < pathData.length; i++) {
-      if (PATH_TO_PROVINCE[i] === provId) {
-        return i === pathIndex;
-      }
-    }
-    return false;
+  // Get all path indices for a province (for highlighting all parts)
+  const getPathIndicesForProvince = (provId) => {
+    const indices = [];
+    Object.entries(PATH_TO_PROVINCE).forEach(([idx, pId]) => {
+      if (pId === provId) indices.push(parseInt(idx));
+    });
+    return indices;
   };
+
+  // Sort paths so selected/hovered are rendered last (on top)
+  const sortedPathData = [...pathData].sort((a, b) => {
+    const provA = getProvinceId(a.index);
+    const provB = getProvinceId(b.index);
+    const aSelected = provA === selected || provA === selectedArmy;
+    const bSelected = provB === selected || provB === selectedArmy;
+    const aHovered = hovered && getPathIndicesForProvince(hovered).includes(a.index);
+    const bHovered = hovered && getPathIndicesForProvince(hovered).includes(b.index);
+    
+    if (aSelected && !bSelected) return 1;
+    if (bSelected && !aSelected) return -1;
+    if (aHovered && !bHovered) return 1;
+    if (bHovered && !aHovered) return -1;
+    return 0;
+  });
 
   return (
     <div className="w-full h-screen bg-slate-900 flex">
       {/* Map Area */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden" ref={containerRef}>
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-b from-slate-900/95 to-transparent z-10 flex items-center px-4 gap-4">
           <h1 className="text-2xl font-bold" style={{ color: '#C9A227', fontFamily: 'serif' }}>
@@ -396,12 +350,39 @@ export default function SengokuMap() {
           </button>
         </div>
 
+        {/* Zoom controls */}
+        <div className="absolute top-16 right-4 z-20 flex flex-col gap-1">
+          <button
+            onClick={() => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) }))}
+            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold"
+          >+</button>
+          <button
+            onClick={() => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) }))}
+            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold"
+          >−</button>
+          <button
+            onClick={resetView}
+            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-xs"
+            title="Reset view"
+          >⟲</button>
+        </div>
+
+        {/* Pan instructions */}
+        <div className="absolute top-16 left-4 z-10 bg-slate-800/70 rounded px-2 py-1 text-xs text-slate-400">
+          Scroll to zoom • Shift+drag to pan
+        </div>
+
         {/* SVG Map */}
         <svg
           ref={svgRef}
-          viewBox="0 0 732 777"
+          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
           className="w-full h-full"
-          style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)' }}
+          style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)', cursor: isPanning ? 'grabbing' : 'default' }}
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
           <defs>
             <filter id="glow">
@@ -419,11 +400,12 @@ export default function SengokuMap() {
             </marker>
           </defs>
 
-          {/* Province paths */}
-          {pathData.map((path, idx) => {
+          {/* Province paths - sorted so selected/hovered render on top */}
+          {sortedPathData.map((path) => {
+            const idx = path.index;
             const provId = getProvinceId(idx);
             const isSelected = provId === selected;
-            const isHovered = hovered === idx;
+            const isHovered = hovered === provId;
             const isValidTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
             const isArmySelected = provId === selectedArmy;
             
@@ -438,14 +420,14 @@ export default function SengokuMap() {
                 strokeWidth={isSelected || isArmySelected || isValidTarget ? 2.5 : 1}
                 filter={isSelected || isArmySelected ? 'url(#glow)' : undefined}
                 style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
-                onClick={() => handleProvinceClick(idx)}
-                onMouseEnter={() => setHovered(idx)}
+                onClick={(e) => handleProvinceClick(idx, e)}
+                onMouseEnter={() => provId && setHovered(provId)}
                 onMouseLeave={() => setHovered(null)}
               />
             );
           })}
 
-          {/* Province labels - rendered using calculated centers */}
+          {/* Province labels */}
           {Object.entries(provinceCenters).map(([provId, center]) => {
             if (!provinces[provId]) return null;
             
@@ -454,7 +436,6 @@ export default function SengokuMap() {
             
             return (
               <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
-                {/* Province name */}
                 <text
                   x={center.x}
                   y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
@@ -463,62 +444,32 @@ export default function SengokuMap() {
                   fontSize="8"
                   fontWeight="600"
                   fill="#fff"
+                  fontFamily="serif"
                   style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}
                 >
                   {PROVINCE_DATA[provId]?.name}
                 </text>
                 
-                {/* Army indicator */}
                 {isOwned && prov.armies > 0 && (
                   <g 
                     onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
                     style={{ cursor: prov.owner === clan ? 'pointer' : 'default', pointerEvents: 'auto' }}
                   >
-                    <circle
-                      cx={center.x}
-                      cy={center.y + 6}
-                      r="8"
-                      fill="#1e293b"
-                      stroke={prov.owner === clan ? '#fbbf24' : '#64748b'}
-                      strokeWidth="1.5"
-                      filter="url(#shadow)"
-                    />
-                    <text
-                      x={center.x}
-                      y={center.y + 7}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize="9"
-                      fontWeight="bold"
-                      fill="#fff"
-                    >
+                    <circle cx={center.x} cy={center.y + 6} r="8" fill="#1e293b" stroke={prov.owner === clan ? '#fbbf24' : '#64748b'} strokeWidth="1.5" filter="url(#shadow)" />
+                    <text x={center.x} y={center.y + 7} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="bold" fill="#fff">
                       {prov.armies}
                     </text>
                   </g>
                 )}
                 
-                {/* Resource icon */}
                 {PROVINCE_DATA[provId]?.resource && (
-                  <text
-                    x={center.x + 18}
-                    y={center.y - 8}
-                    fontSize="8"
-                    style={{ pointerEvents: 'none' }}
-                  >
+                  <text x={center.x + 18} y={center.y - 8} fontSize="8" style={{ pointerEvents: 'none' }}>
                     {RESOURCES[PROVINCE_DATA[provId].resource]?.icon}
                   </text>
                 )}
                 
-                {/* Capital marker */}
                 {PROVINCE_DATA[provId]?.special === 'capital' && (
-                  <text
-                    x={center.x}
-                    y={center.y + 18}
-                    textAnchor="middle"
-                    fontSize="10"
-                  >
-                    👑
-                  </text>
+                  <text x={center.x} y={center.y + 18} textAnchor="middle" fontSize="10">👑</text>
                 )}
               </g>
             );
@@ -531,18 +482,9 @@ export default function SengokuMap() {
             if (!from || !to) return null;
             
             return (
-              <line
-                key={move.id}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke={CLANS[move.clan]?.color || '#fbbf24'}
-                strokeWidth="3"
-                strokeDasharray="8,4"
-                markerEnd="url(#arrowhead)"
-                opacity="0.8"
-              />
+              <line key={move.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+                stroke={CLANS[move.clan]?.color || '#fbbf24'} strokeWidth="3" strokeDasharray="8,4"
+                markerEnd="url(#arrowhead)" opacity="0.8" />
             );
           })}
         </svg>
@@ -554,12 +496,7 @@ export default function SengokuMap() {
               Moving army from <span className="text-amber-400 font-bold">{provinces[selectedArmy]?.name}</span>
             </p>
             <p className="text-green-400 text-sm mb-3">Click a neighboring province (highlighted in green)</p>
-            <button
-              onClick={cancelMove}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white text-sm"
-            >
-              Cancel
-            </button>
+            <button onClick={cancelMove} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white text-sm">Cancel</button>
           </div>
         )}
 
@@ -573,15 +510,8 @@ export default function SengokuMap() {
             <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
               {moves.filter(m => m.clan === clan).map(m => (
                 <div key={m.id} className="flex items-center justify-between bg-slate-700/50 rounded px-2 py-1.5">
-                  <span className="text-xs text-white">
-                    {provinces[m.from]?.name} → {provinces[m.to]?.name}
-                  </span>
-                  <button
-                    onClick={() => removeMove(m.id)}
-                    className="text-red-400 hover:text-red-300 text-xs ml-2"
-                  >
-                    ✕
-                  </button>
+                  <span className="text-xs text-white">{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
+                  <button onClick={() => removeMove(m.id)} className="text-red-400 hover:text-red-300 text-xs ml-2">✕</button>
                 </div>
               ))}
             </div>
@@ -605,27 +535,17 @@ export default function SengokuMap() {
       {/* Side Panel */}
       {selected && provinces[selected] && (
         <div className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col shadow-xl">
-          {/* Header */}
-          <div
-            className="p-4 border-b border-slate-700"
-            style={{ background: `linear-gradient(135deg, ${getColor(selected)}50, transparent)` }}
-          >
+          <div className="p-4 border-b border-slate-700" style={{ background: `linear-gradient(135deg, ${getColor(selected)}50, transparent)` }}>
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'serif' }}>
-                {provinces[selected].name}
-              </h2>
+              <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'serif' }}>{provinces[selected].name}</h2>
               {PROVINCE_DATA[selected]?.special === 'capital' && <span className="text-xl">👑</span>}
             </div>
             <p className="text-slate-300 text-sm mt-1">
-              Controlled by: <span className="font-semibold" style={{ color: getColor(selected) }}>
-                {CLANS[provinces[selected].owner]?.name || 'No one'}
-              </span>
+              Controlled by: <span className="font-semibold" style={{ color: getColor(selected) }}>{CLANS[provinces[selected].owner]?.name || 'No one'}</span>
             </p>
           </div>
           
-          {/* Content */}
           <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-            {/* Resource */}
             {PROVINCE_DATA[selected]?.resource && (
               <div className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg">
                 <span className="text-2xl">{RESOURCES[PROVINCE_DATA[selected].resource]?.icon}</span>
@@ -636,7 +556,6 @@ export default function SengokuMap() {
               </div>
             )}
             
-            {/* Armies */}
             <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
               <div>
                 <p className="text-white font-medium">Armies Stationed</p>
@@ -645,83 +564,47 @@ export default function SengokuMap() {
               <span className="text-white font-bold text-2xl">{provinces[selected].armies}</span>
             </div>
 
-            {/* Actions for owned provinces */}
-            {provinces[selected].owner === clan && (
-              <div className="space-y-2">
-                {provinces[selected].armies > 0 && (
-                  <button
-                    onClick={() => startArmyMove(selected)}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-medium transition"
-                  >
-                    🎌 Move Army
-                  </button>
-                )}
-              </div>
+            {provinces[selected].owner === clan && provinces[selected].armies > 0 && (
+              <button onClick={() => startArmyMove(selected)} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-medium transition">
+                🎌 Move Army
+              </button>
             )}
 
-            {/* Neighbors */}
             <div>
               <p className="text-slate-400 text-sm mb-2">Neighboring Provinces:</p>
               <div className="flex flex-wrap gap-1.5">
                 {PROVINCE_DATA[selected]?.neighbors?.map(n => (
-                  <button
-                    key={n}
-                    onClick={() => provinces[n] && setSelected(n)}
+                  <button key={n} onClick={() => provinces[n] && setSelected(n)}
                     className="text-xs px-2.5 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 transition"
-                    style={{ borderLeft: `3px solid ${getColor(n)}` }}
-                  >
+                    style={{ borderLeft: `3px solid ${getColor(n)}` }}>
                     {PROVINCE_DATA[n]?.name || n}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Admin Controls */}
             {admin && (
               <div className="pt-4 border-t border-slate-600 space-y-3">
                 <p className="text-red-400 text-xs font-medium">⚠️ ADMIN CONTROLS</p>
-                
                 <div>
                   <label className="text-slate-400 text-xs">Change Owner:</label>
-                  <select
-                    value={provinces[selected].owner}
-                    onChange={e => changeOwner(selected, e.target.value)}
-                    className="w-full mt-1 p-2 bg-slate-700 text-white rounded border border-slate-600 text-sm"
-                  >
-                    {Object.entries(CLANS).map(([id, c]) => (
-                      <option key={id} value={id}>{c.name}</option>
-                    ))}
+                  <select value={provinces[selected].owner} onChange={e => changeOwner(selected, e.target.value)}
+                    className="w-full mt-1 p-2 bg-slate-700 text-white rounded border border-slate-600 text-sm">
+                    {Object.entries(CLANS).map(([id, c]) => (<option key={id} value={id}>{c.name}</option>))}
                   </select>
                 </div>
-                
                 <div>
                   <label className="text-slate-400 text-xs">Armies:</label>
                   <div className="flex gap-2 mt-1">
-                    <button
-                      onClick={() => removeArmy(selected)}
-                      className="flex-1 py-1.5 bg-red-700 hover:bg-red-600 rounded text-white text-sm"
-                    >
-                      - Remove
-                    </button>
-                    <button
-                      onClick={() => addArmy(selected)}
-                      className="flex-1 py-1.5 bg-green-700 hover:bg-green-600 rounded text-white text-sm"
-                    >
-                      + Add
-                    </button>
+                    <button onClick={() => removeArmy(selected)} className="flex-1 py-1.5 bg-red-700 hover:bg-red-600 rounded text-white text-sm">- Remove</button>
+                    <button onClick={() => addArmy(selected)} className="flex-1 py-1.5 bg-green-700 hover:bg-green-600 rounded text-white text-sm">+ Add</button>
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Close button */}
-          <button
-            onClick={() => setSelected(null)}
-            className="m-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-sm transition"
-          >
-            Close Panel
-          </button>
+          <button onClick={() => setSelected(null)} className="m-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-sm transition">Close Panel</button>
         </div>
       )}
     </div>
