@@ -108,19 +108,48 @@ const CLANS = {
 };
 
 const RESOURCES = {
-  smithing: { icon: '⚔️', name: 'Smithing' },
-  horses: { icon: '🐎', name: 'Horses' },
-  gold: { icon: '💰', name: 'Gold' },
-  iron: { icon: '⛏️', name: 'Iron' },
-  farming: { icon: '🌾', name: 'Farming' },
-  naval: { icon: '⚓', name: 'Naval' },
-  craftwork: { icon: '🏺', name: 'Craftwork' },
-  ninja: { icon: '🥷', name: 'Ninja' },
-  hallowed: { icon: '⛩️', name: 'Sacred' },
-  philosophical: { icon: '📜', name: 'Learning' },
-  forest: { icon: '🌲', name: 'Timber' },
-  stone: { icon: '🪨', name: 'Stone' },
-  fishing: { icon: '🐟', name: 'Fishing' },
+  smithing: { icon: '⚔️', name: 'Smithing', desc: 'Weapon production' },
+  horses: { icon: '🐎', name: 'Horses', desc: 'Cavalry units' },
+  gold: { icon: '💰', name: 'Gold', desc: 'Treasury income' },
+  iron: { icon: '⛏️', name: 'Iron', desc: 'Armor production' },
+  farming: { icon: '🌾', name: 'Farming', desc: 'Food & population' },
+  naval: { icon: '⚓', name: 'Naval', desc: 'Ship building' },
+  craftwork: { icon: '🏺', name: 'Craftwork', desc: 'Trade goods' },
+  ninja: { icon: '🥷', name: 'Ninja', desc: 'Espionage' },
+  hallowed: { icon: '⛩️', name: 'Sacred', desc: 'Legitimacy & morale' },
+  philosophical: { icon: '📜', name: 'Learning', desc: 'Technology' },
+  forest: { icon: '🌲', name: 'Timber', desc: 'Construction' },
+  stone: { icon: '🪨', name: 'Stone', desc: 'Fortifications' },
+  fishing: { icon: '🐟', name: 'Fishing', desc: 'Coastal food' },
+};
+
+// Calculate time until next Thursday midnight (end of planning phase)
+const getTimeUntilDeadline = () => {
+  const now = new Date();
+  const dayOfWeek = now.getDay(); // 0 = Sunday, 4 = Thursday
+  let daysUntilThursday = (4 - dayOfWeek + 7) % 7;
+  if (daysUntilThursday === 0 && now.getHours() >= 23 && now.getMinutes() >= 59) {
+    daysUntilThursday = 7;
+  }
+  
+  const nextThursday = new Date(now);
+  nextThursday.setDate(now.getDate() + daysUntilThursday);
+  nextThursday.setHours(23, 59, 59, 999);
+  
+  const diff = nextThursday - now;
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  
+  return { days, hours, minutes, total: diff };
+};
+
+// Get current phase based on day of week
+const getCurrentPhase = () => {
+  const day = new Date().getDay();
+  if (day === 5) return { phase: 'BATTLE', label: 'Battle Day', color: '#DC2626' }; // Friday
+  if (day === 6 || day === 0) return { phase: 'BATTLE', label: 'Battle Weekend', color: '#DC2626' }; // Sat/Sun
+  return { phase: 'PLANNING', label: 'Planning Phase', color: '#3B82F6' }; // Mon-Thu
 };
 
 export default function SengokuMap() {
@@ -138,20 +167,34 @@ export default function SengokuMap() {
       Object.entries(CLANS).forEach(([cid, c]) => {
         if (c.provinces?.includes(id)) owner = cid;
       });
-      init[id] = { ...p, id, owner, armies: owner !== 'uncontrolled' ? 1 : 0 };
+      init[id] = { ...p, id, owner, armies: owner !== 'uncontrolled' ? 1 : 0, rallyCapacity: 100 };
     });
     return init;
   });
   const [clan, setClan] = useState('oda');
   const [admin, setAdmin] = useState(false);
-  const [moves, setMoves] = useState([]);
+  const [committedMoves, setCommittedMoves] = useState([]); // Locked in moves
+  const [pendingMoves, setPendingMoves] = useState([]); // Can still be changed
   const [selectedArmy, setSelectedArmy] = useState(null);
+  const [timeUntilDeadline, setTimeUntilDeadline] = useState(getTimeUntilDeadline());
+  const [currentPhase, setCurrentPhase] = useState(getCurrentPhase());
+  const [tooltip, setTooltip] = useState(null);
   
   // Pan and zoom state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 732, h: 777 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
+  // Update countdown timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimeUntilDeadline(getTimeUntilDeadline());
+      setCurrentPhase(getCurrentPhase());
+    }, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load SVG
   useEffect(() => {
     fetch('/japan-provinces.svg')
       .then(res => res.text())
@@ -173,6 +216,7 @@ export default function SengokuMap() {
       });
   }, []);
 
+  // Calculate province centers
   useEffect(() => {
     if (!svgRef.current || pathData.length === 0) return;
     
@@ -201,32 +245,45 @@ export default function SengokuMap() {
     setProvinceCenters(centers);
   }, [pathData]);
 
+  // Load from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('sengoku-game-state');
+    if (saved) {
+      try {
+        const state = JSON.parse(saved);
+        if (state.provinces) setProvinces(state.provinces);
+        if (state.week) setWeek(state.week);
+        if (state.committedMoves) setCommittedMoves(state.committedMoves);
+        if (state.pendingMoves) setPendingMoves(state.pendingMoves);
+      } catch (e) {}
+    }
+  }, []);
+
+  // Save to localStorage
+  useEffect(() => {
+    const state = { provinces, week, committedMoves, pendingMoves };
+    localStorage.setItem('sengoku-game-state', JSON.stringify(state));
+  }, [provinces, week, committedMoves, pendingMoves]);
+
   // Pan and zoom handlers
   const handleWheel = (e) => {
     e.preventDefault();
     const scaleFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    
     const svg = svgRef.current;
     const rect = svg.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
-    
-    // Convert mouse position to SVG coordinates
     const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w;
     const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h;
-    
     const newW = Math.max(200, Math.min(1500, viewBox.w * scaleFactor));
     const newH = Math.max(200, Math.min(1600, viewBox.h * scaleFactor));
-    
-    // Adjust position to zoom toward mouse
     const newX = svgX - (mouseX / rect.width) * newW;
     const newY = svgY - (mouseY / rect.height) * newH;
-    
     setViewBox({ x: newX, y: newY, w: newW, h: newH });
   };
 
   const handleMouseDown = (e) => {
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) { // Middle click or shift+left click
+    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
       setIsPanning(true);
       setPanStart({ x: e.clientX, y: e.clientY });
       e.preventDefault();
@@ -235,26 +292,29 @@ export default function SengokuMap() {
 
   const handleMouseMove = (e) => {
     if (!isPanning) return;
-    
     const svg = svgRef.current;
     const rect = svg.getBoundingClientRect();
-    
     const dx = (e.clientX - panStart.x) * (viewBox.w / rect.width);
     const dy = (e.clientY - panStart.y) * (viewBox.h / rect.height);
-    
     setViewBox(prev => ({ ...prev, x: prev.x - dx, y: prev.y - dy }));
     setPanStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseUp = () => setIsPanning(false);
-
   const resetView = () => setViewBox({ x: 0, y: 0, w: 732, h: 777 });
 
   const getProvinceId = (pathIndex) => PATH_TO_PROVINCE[pathIndex] || null;
-  
   const getColor = (provId) => {
     if (!provId || !provinces[provId]) return '#78716c';
     return CLANS[provinces[provId].owner]?.color || '#78716c';
+  };
+
+  // Get clan border color for territory outlines
+  const getClanBorderColor = (provId) => {
+    if (!provId || !provinces[provId]) return null;
+    const owner = provinces[provId].owner;
+    if (owner === 'uncontrolled') return null;
+    return CLANS[owner]?.color;
   };
 
   const handleProvinceClick = (index, e) => {
@@ -263,7 +323,13 @@ export default function SengokuMap() {
     if (!provId) return;
     
     if (selectedArmy && provinces[selectedArmy].neighbors.includes(provId)) {
-      setMoves([...moves, { id: Date.now(), from: selectedArmy, to: provId, clan }]);
+      // Add to pending moves (can still be changed)
+      const existingMove = pendingMoves.find(m => m.from === selectedArmy && m.clan === clan);
+      if (existingMove) {
+        setPendingMoves(pendingMoves.map(m => m.id === existingMove.id ? { ...m, to: provId } : m));
+      } else {
+        setPendingMoves([...pendingMoves, { id: Date.now(), from: selectedArmy, to: provId, clan, committed: false }]);
+      }
       setSelectedArmy(null);
       return;
     }
@@ -272,21 +338,62 @@ export default function SengokuMap() {
     setSelectedArmy(null);
   };
 
+  const handleProvinceHover = (e, provId) => {
+    if (!provId || !provinces[provId]) {
+      setTooltip(null);
+      return;
+    }
+    const prov = provinces[provId];
+    setTooltip({
+      x: e.clientX,
+      y: e.clientY,
+      province: prov,
+      provId
+    });
+  };
+
   const startArmyMove = (provId) => {
+    if (currentPhase.phase === 'BATTLE') return; // Can't plan during battles
     if (provinces[provId].owner === clan && provinces[provId].armies > 0) {
       setSelectedArmy(provId);
     }
   };
 
+  const commitMove = (moveId) => {
+    const move = pendingMoves.find(m => m.id === moveId);
+    if (move) {
+      setPendingMoves(pendingMoves.filter(m => m.id !== moveId));
+      setCommittedMoves([...committedMoves, { ...move, committedAt: Date.now() }]);
+    }
+  };
+
+  const uncommitMove = (moveId) => {
+    const move = committedMoves.find(m => m.id === moveId);
+    if (move) {
+      // Check if within 12 hour window
+      const hoursSinceCommit = (Date.now() - move.committedAt) / (1000 * 60 * 60);
+      if (hoursSinceCommit < 12) {
+        setCommittedMoves(committedMoves.filter(m => m.id !== moveId));
+        setPendingMoves([...pendingMoves, { ...move, committed: false }]);
+      }
+    }
+  };
+
+  const cancelPendingMove = (moveId) => {
+    setPendingMoves(pendingMoves.filter(m => m.id !== moveId));
+  };
+
   const cancelMove = () => setSelectedArmy(null);
-  const removeMove = (moveId) => setMoves(moves.filter(m => m.id !== moveId));
+
+  // Admin functions
   const changeOwner = (id, newOwner) => setProvinces({ ...provinces, [id]: { ...provinces[id], owner: newOwner } });
   const addArmy = (id) => setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies + 1 } });
   const removeArmy = (id) => {
     if (provinces[id].armies > 0) setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies - 1 } });
   };
+  const setRallyCapacity = (id, capacity) => setProvinces({ ...provinces, [id]: { ...provinces[id], rallyCapacity: parseInt(capacity) || 0 } });
+  const advanceWeek = () => setWeek(w => w + 1);
 
-  // Get all path indices for a province (for highlighting all parts)
   const getPathIndicesForProvince = (provId) => {
     const indices = [];
     Object.entries(PATH_TO_PROVINCE).forEach(([idx, pId]) => {
@@ -295,14 +402,14 @@ export default function SengokuMap() {
     return indices;
   };
 
-  // Sort paths so selected/hovered are rendered last (on top)
+  // Sort paths for layering
   const sortedPathData = [...pathData].sort((a, b) => {
     const provA = getProvinceId(a.index);
     const provB = getProvinceId(b.index);
     const aSelected = provA === selected || provA === selectedArmy;
     const bSelected = provB === selected || provB === selectedArmy;
-    const aHovered = hovered && getPathIndicesForProvince(hovered).includes(a.index);
-    const bHovered = hovered && getPathIndicesForProvince(hovered).includes(b.index);
+    const aHovered = hovered === provA;
+    const bHovered = hovered === provB;
     
     if (aSelected && !bSelected) return 1;
     if (bSelected && !aSelected) return -1;
@@ -310,6 +417,11 @@ export default function SengokuMap() {
     if (bHovered && !aHovered) return -1;
     return 0;
   });
+
+  // Get all moves for current clan
+  const clanPendingMoves = pendingMoves.filter(m => m.clan === clan);
+  const clanCommittedMoves = committedMoves.filter(m => m.clan === clan);
+  const allClanMoves = [...clanPendingMoves, ...clanCommittedMoves];
 
   return (
     <div className="w-full h-screen bg-slate-900 flex">
@@ -325,6 +437,21 @@ export default function SengokuMap() {
             <span className="text-slate-400 text-xs">WEEK</span>
             <span className="text-amber-400 font-bold text-xl ml-2">{week}</span>
           </div>
+
+          {/* Phase indicator */}
+          <div className="bg-slate-800/80 rounded px-3 py-1 border border-slate-700">
+            <span className="text-xs font-bold" style={{ color: currentPhase.color }}>{currentPhase.label}</span>
+          </div>
+
+          {/* Countdown */}
+          {currentPhase.phase === 'PLANNING' && (
+            <div className="bg-slate-800/80 rounded px-3 py-1 border border-slate-700">
+              <span className="text-slate-400 text-xs">Orders lock in: </span>
+              <span className="text-amber-400 text-sm font-mono">
+                {timeUntilDeadline.days}d {timeUntilDeadline.hours}h {timeUntilDeadline.minutes}m
+              </span>
+            </div>
+          )}
 
           <div className="flex-1" />
           
@@ -352,24 +479,11 @@ export default function SengokuMap() {
 
         {/* Zoom controls */}
         <div className="absolute top-16 right-4 z-20 flex flex-col gap-1">
-          <button
-            onClick={() => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) }))}
-            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold"
-          >+</button>
-          <button
-            onClick={() => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) }))}
-            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold"
-          >−</button>
-          <button
-            onClick={resetView}
-            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-xs"
-            title="Reset view"
-          >⟲</button>
-        </div>
-
-        {/* Pan instructions */}
-        <div className="absolute top-16 left-4 z-10 bg-slate-800/70 rounded px-2 py-1 text-xs text-slate-400">
-          Scroll to zoom • Shift+drag to pan
+          <button onClick={() => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) }))}
+            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold">+</button>
+          <button onClick={() => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) }))}
+            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold">−</button>
+          <button onClick={resetView} className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-xs" title="Reset view">⟲</button>
         </div>
 
         {/* SVG Map */}
@@ -377,7 +491,7 @@ export default function SengokuMap() {
           ref={svgRef}
           viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
           className="w-full h-full"
-          style={{ background: 'linear-gradient(180deg, #0f172a 0%, #020617 100%)', cursor: isPanning ? 'grabbing' : 'default' }}
+          style={{ cursor: isPanning ? 'grabbing' : 'default' }}
           onWheel={handleWheel}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -387,10 +501,7 @@ export default function SengokuMap() {
           <defs>
             <filter id="glow">
               <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
             </filter>
             <filter id="shadow">
               <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.5"/>
@@ -398,9 +509,15 @@ export default function SengokuMap() {
             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
               <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
             </marker>
+            <marker id="arrowhead-committed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
+            </marker>
           </defs>
 
-          {/* Province paths - sorted so selected/hovered render on top */}
+          {/* Background image */}
+          <image href="/japan-map.jpg" x="0" y="0" width="732" height="777" opacity="0.3" />
+
+          {/* Province paths */}
           {sortedPathData.map((path) => {
             const idx = path.index;
             const provId = getProvinceId(idx);
@@ -408,6 +525,7 @@ export default function SengokuMap() {
             const isHovered = hovered === provId;
             const isValidTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
             const isArmySelected = provId === selectedArmy;
+            const borderColor = getClanBorderColor(provId);
             
             return (
               <path
@@ -416,13 +534,14 @@ export default function SengokuMap() {
                 d={path.d}
                 fill={provId ? getColor(provId) : '#64748b'}
                 fillOpacity={isSelected || isArmySelected ? 0.95 : isHovered ? 0.85 : 0.7}
-                stroke={isArmySelected ? '#22c55e' : isSelected ? '#fbbf24' : isValidTarget ? '#86efac' : isHovered ? '#cbd5e1' : '#334155'}
-                strokeWidth={isSelected || isArmySelected || isValidTarget ? 2.5 : 1}
+                stroke={isArmySelected ? '#22c55e' : isSelected ? '#fbbf24' : isValidTarget ? '#86efac' : borderColor || '#334155'}
+                strokeWidth={isSelected || isArmySelected ? 3 : isValidTarget ? 2.5 : borderColor ? 2 : 1}
                 filter={isSelected || isArmySelected ? 'url(#glow)' : undefined}
                 style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
                 onClick={(e) => handleProvinceClick(idx, e)}
-                onMouseEnter={() => provId && setHovered(provId)}
-                onMouseLeave={() => setHovered(null)}
+                onMouseEnter={(e) => { provId && setHovered(provId); handleProvinceHover(e, provId); }}
+                onMouseMove={(e) => handleProvinceHover(e, provId)}
+                onMouseLeave={() => { setHovered(null); setTooltip(null); }}
               />
             );
           })}
@@ -430,31 +549,20 @@ export default function SengokuMap() {
           {/* Province labels */}
           {Object.entries(provinceCenters).map(([provId, center]) => {
             if (!provinces[provId]) return null;
-            
             const prov = provinces[provId];
             const isOwned = prov.owner !== 'uncontrolled';
             
             return (
               <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
-                <text
-                  x={center.x}
-                  y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontSize="8"
-                  fontWeight="600"
-                  fill="#fff"
-                  fontFamily="serif"
-                  style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}
-                >
+                <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
+                  textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="600" fill="#fff" fontFamily="serif"
+                  style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
                   {PROVINCE_DATA[provId]?.name}
                 </text>
                 
                 {isOwned && prov.armies > 0 && (
-                  <g 
-                    onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
-                    style={{ cursor: prov.owner === clan ? 'pointer' : 'default', pointerEvents: 'auto' }}
-                  >
+                  <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
+                    style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
                     <circle cx={center.x} cy={center.y + 6} r="8" fill="#1e293b" stroke={prov.owner === clan ? '#fbbf24' : '#64748b'} strokeWidth="1.5" filter="url(#shadow)" />
                     <text x={center.x} y={center.y + 7} textAnchor="middle" dominantBaseline="middle" fontSize="9" fontWeight="bold" fill="#fff">
                       {prov.armies}
@@ -475,19 +583,40 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* Movement arrows */}
-          {moves.filter(m => m.clan === clan).map(move => {
+          {/* Movement arrows - Pending (yellow dashed) */}
+          {clanPendingMoves.map(move => {
             const from = provinceCenters[move.from];
             const to = provinceCenters[move.to];
             if (!from || !to) return null;
-            
             return (
               <line key={move.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                stroke={CLANS[move.clan]?.color || '#fbbf24'} strokeWidth="3" strokeDasharray="8,4"
+                stroke="#fbbf24" strokeWidth="3" strokeDasharray="8,4"
                 markerEnd="url(#arrowhead)" opacity="0.8" />
             );
           })}
+
+          {/* Movement arrows - Committed (green solid) */}
+          {clanCommittedMoves.map(move => {
+            const from = provinceCenters[move.from];
+            const to = provinceCenters[move.to];
+            if (!from || !to) return null;
+            return (
+              <line key={move.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+                stroke="#22c55e" strokeWidth="3"
+                markerEnd="url(#arrowhead-committed)" opacity="0.9" />
+            );
+          })}
         </svg>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div className="fixed bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 p-2 z-50 pointer-events-none"
+            style={{ left: tooltip.x + 10, top: tooltip.y + 10 }}>
+            <p className="font-bold text-white" style={{ fontFamily: 'serif' }}>{tooltip.province.name}</p>
+            <p className="text-xs" style={{ color: getColor(tooltip.provId) }}>{CLANS[tooltip.province.owner]?.name || 'Neutral'}</p>
+            {tooltip.province.armies > 0 && <p className="text-xs text-slate-300">⚔️ {tooltip.province.armies} armies</p>}
+          </div>
+        )}
 
         {/* Army Movement UI */}
         {selectedArmy && (
@@ -500,20 +629,51 @@ export default function SengokuMap() {
           </div>
         )}
 
-        {/* Planned Moves Panel */}
-        {moves.filter(m => m.clan === clan).length > 0 && (
-          <div className="absolute bottom-4 right-4 w-64 bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 z-20 overflow-hidden shadow-xl">
-            <div className="p-3 border-b border-slate-700 flex justify-between items-center">
-              <h3 className="text-white font-bold text-sm">📋 Planned Orders</h3>
-              <span className="text-slate-400 text-xs">{moves.filter(m => m.clan === clan).length} moves</span>
+        {/* Orders Panel */}
+        {(clanPendingMoves.length > 0 || clanCommittedMoves.length > 0) && (
+          <div className="absolute bottom-4 right-4 w-72 bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 z-20 overflow-hidden shadow-xl">
+            <div className="p-3 border-b border-slate-700">
+              <h3 className="text-white font-bold text-sm">📋 Army Orders</h3>
             </div>
-            <div className="p-2 space-y-1 max-h-48 overflow-y-auto">
-              {moves.filter(m => m.clan === clan).map(m => (
-                <div key={m.id} className="flex items-center justify-between bg-slate-700/50 rounded px-2 py-1.5">
-                  <span className="text-xs text-white">{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
-                  <button onClick={() => removeMove(m.id)} className="text-red-400 hover:text-red-300 text-xs ml-2">✕</button>
+            <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
+              {/* Pending moves */}
+              {clanPendingMoves.map(m => (
+                <div key={m.id} className="bg-amber-900/30 border border-amber-700/50 rounded p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-white">{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
+                  </div>
+                  <div className="flex gap-1 mt-1">
+                    <button onClick={() => commitMove(m.id)} className="flex-1 text-xs py-1 bg-green-700 hover:bg-green-600 rounded text-white">
+                      ✓ Commit
+                    </button>
+                    <button onClick={() => cancelPendingMove(m.id)} className="flex-1 text-xs py-1 bg-red-700 hover:bg-red-600 rounded text-white">
+                      ✕ Cancel
+                    </button>
+                  </div>
+                  <p className="text-xs text-amber-400 mt-1">⚠️ Not committed yet</p>
                 </div>
               ))}
+              
+              {/* Committed moves */}
+              {clanCommittedMoves.map(m => {
+                const hoursSinceCommit = (Date.now() - m.committedAt) / (1000 * 60 * 60);
+                const canUncommit = hoursSinceCommit < 12;
+                return (
+                  <div key={m.id} className="bg-green-900/30 border border-green-700/50 rounded p-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-white">{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
+                      {canUncommit && (
+                        <button onClick={() => uncommitMove(m.id)} className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300">
+                          Undo
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xs text-green-400 mt-1">
+                      ✓ Committed {canUncommit ? `(${Math.round(12 - hoursSinceCommit)}h to change)` : '(locked)'}
+                    </p>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -551,7 +711,7 @@ export default function SengokuMap() {
                 <span className="text-2xl">{RESOURCES[PROVINCE_DATA[selected].resource]?.icon}</span>
                 <div>
                   <p className="text-white font-medium">{RESOURCES[PROVINCE_DATA[selected].resource]?.name}</p>
-                  <p className="text-slate-400 text-xs">Province Resource</p>
+                  <p className="text-slate-400 text-xs">{RESOURCES[PROVINCE_DATA[selected].resource]?.desc}</p>
                 </div>
               </div>
             )}
@@ -564,10 +724,25 @@ export default function SengokuMap() {
               <span className="text-white font-bold text-2xl">{provinces[selected].armies}</span>
             </div>
 
-            {provinces[selected].owner === clan && provinces[selected].armies > 0 && (
+            <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
+              <div>
+                <p className="text-white font-medium">Rally Capacity</p>
+                <p className="text-slate-400 text-xs">Max recruitable</p>
+              </div>
+              <span className="text-white font-bold text-xl">{provinces[selected].rallyCapacity || 0}</span>
+            </div>
+
+            {provinces[selected].owner === clan && provinces[selected].armies > 0 && currentPhase.phase === 'PLANNING' && (
               <button onClick={() => startArmyMove(selected)} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-medium transition">
                 🎌 Move Army
               </button>
+            )}
+
+            {currentPhase.phase === 'BATTLE' && (
+              <div className="p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
+                <p className="text-red-400 text-sm font-medium">⚔️ Battle Phase</p>
+                <p className="text-red-300 text-xs">Army movements locked. Resolve battles in Roblox!</p>
+              </div>
             )}
 
             <div>
@@ -586,6 +761,7 @@ export default function SengokuMap() {
             {admin && (
               <div className="pt-4 border-t border-slate-600 space-y-3">
                 <p className="text-red-400 text-xs font-medium">⚠️ ADMIN CONTROLS</p>
+                
                 <div>
                   <label className="text-slate-400 text-xs">Change Owner:</label>
                   <select value={provinces[selected].owner} onChange={e => changeOwner(selected, e.target.value)}
@@ -593,12 +769,30 @@ export default function SengokuMap() {
                     {Object.entries(CLANS).map(([id, c]) => (<option key={id} value={id}>{c.name}</option>))}
                   </select>
                 </div>
+                
                 <div>
                   <label className="text-slate-400 text-xs">Armies:</label>
                   <div className="flex gap-2 mt-1">
                     <button onClick={() => removeArmy(selected)} className="flex-1 py-1.5 bg-red-700 hover:bg-red-600 rounded text-white text-sm">- Remove</button>
                     <button onClick={() => addArmy(selected)} className="flex-1 py-1.5 bg-green-700 hover:bg-green-600 rounded text-white text-sm">+ Add</button>
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 text-xs">Rally Capacity:</label>
+                  <input
+                    type="number"
+                    value={provinces[selected].rallyCapacity || 0}
+                    onChange={e => setRallyCapacity(selected, e.target.value)}
+                    className="w-full mt-1 p-2 bg-slate-700 text-white rounded border border-slate-600 text-sm"
+                  />
+                </div>
+
+                <div className="pt-2 border-t border-slate-600">
+                  <label className="text-slate-400 text-xs">Game Controls:</label>
+                  <button onClick={advanceWeek} className="w-full mt-1 py-1.5 bg-amber-700 hover:bg-amber-600 rounded text-white text-sm">
+                    ⏭️ Advance Week ({week} → {week + 1})
+                  </button>
                 </div>
               </div>
             )}
