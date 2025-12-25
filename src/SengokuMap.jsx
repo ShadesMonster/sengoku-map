@@ -558,9 +558,10 @@ export default function SengokuMap() {
                 {/* Province name - only show when zoomed in */}
                 {isZoomedIn && (
                   <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 10 : 0)}
-                    textAnchor="middle" dominantBaseline="middle" fontSize="8" fontWeight="600" fill="#fff" fontFamily="serif"
+                    textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill="#fff" fontFamily="serif"
+                    letterSpacing="0.5"
                     style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
-                    {PROVINCE_DATA[provId]?.name}
+                    {PROVINCE_DATA[provId]?.name.toUpperCase()}
                   </text>
                 )}
                 
@@ -573,18 +574,6 @@ export default function SengokuMap() {
                       {prov.armies}
                     </text>
                   </g>
-                )}
-                
-                {/* Resource icons - only show when zoomed in */}
-                {isZoomedIn && PROVINCE_DATA[provId]?.resource && (
-                  <text x={center.x + 18} y={center.y - 8} fontSize="8" style={{ pointerEvents: 'none' }}>
-                    {RESOURCES[PROVINCE_DATA[provId].resource]?.icon}
-                  </text>
-                )}
-                
-                {/* Capital marker - only show when zoomed in */}
-                {isZoomedIn && PROVINCE_DATA[provId]?.special === 'capital' && (
-                  <text x={center.x} y={center.y + 18} textAnchor="middle" fontSize="10">👑</text>
                 )}
               </g>
             );
