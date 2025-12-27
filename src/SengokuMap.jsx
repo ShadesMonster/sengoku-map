@@ -137,7 +137,7 @@ const S = {
   parchment: '#d4c4a8',
   parchmentDark: '#b8a88c',
   red: '#8B0000',
-  gold: '#b8860b',
+  gold: '#ffd700',
 };
 
 export default function SengokuMap() {
@@ -344,8 +344,14 @@ export default function SengokuMap() {
               </div>
             </div>
 
-            <div style={{ background: currentPhase.color, padding: '8px 20px', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }}>
-              <span style={{ color: S.parchment, fontSize: '12px', fontWeight: '600' }}>{currentPhase.label}</span>
+            <div style={{ 
+              background: currentPhase.color, 
+              padding: '10px 24px', 
+              clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              border: currentPhase.phase === 'BATTLE' ? '1px solid #ff4444' : '1px solid #4a7c23'
+            }}>
+              <span style={{ color: '#fff', fontSize: '13px', fontWeight: '700', letterSpacing: '2px' }}>{currentPhase.label}</span>
             </div>
 
             {currentPhase.phase === 'PLANNING' && (
@@ -386,9 +392,54 @@ export default function SengokuMap() {
             <filter id="shadow"><feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.5"/></filter>
             <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill={S.gold} /></marker>
             <marker id="arrow-c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2d5016" /></marker>
+            
+            {/* Land texture pattern */}
+            <pattern id="landTexture" patternUnits="userSpaceOnUse" width="100" height="100">
+              <rect width="100" height="100" fill="#8b7355"/>
+              <circle cx="10" cy="10" r="1" fill="#7a6548" opacity="0.5"/>
+              <circle cx="30" cy="25" r="1.5" fill="#9c8462" opacity="0.4"/>
+              <circle cx="50" cy="5" r="1" fill="#7a6548" opacity="0.5"/>
+              <circle cx="70" cy="30" r="1" fill="#9c8462" opacity="0.4"/>
+              <circle cx="90" cy="15" r="1.5" fill="#7a6548" opacity="0.5"/>
+              <circle cx="15" cy="50" r="1" fill="#9c8462" opacity="0.4"/>
+              <circle cx="40" cy="60" r="1.5" fill="#7a6548" opacity="0.5"/>
+              <circle cx="60" cy="45" r="1" fill="#9c8462" opacity="0.4"/>
+              <circle cx="80" cy="55" r="1" fill="#7a6548" opacity="0.5"/>
+              <circle cx="5" cy="80" r="1.5" fill="#9c8462" opacity="0.4"/>
+              <circle cx="25" cy="90" r="1" fill="#7a6548" opacity="0.5"/>
+              <circle cx="55" cy="85" r="1" fill="#9c8462" opacity="0.4"/>
+              <circle cx="75" cy="75" r="1.5" fill="#7a6548" opacity="0.5"/>
+              <circle cx="95" cy="95" r="1" fill="#9c8462" opacity="0.4"/>
+              <path d="M0,20 Q25,15 50,20 T100,20" stroke="#7a6548" strokeWidth="0.5" fill="none" opacity="0.3"/>
+              <path d="M0,50 Q25,45 50,50 T100,50" stroke="#9c8462" strokeWidth="0.5" fill="none" opacity="0.2"/>
+              <path d="M0,80 Q25,75 50,80 T100,80" stroke="#7a6548" strokeWidth="0.5" fill="none" opacity="0.3"/>
+            </pattern>
+            
+            <filter id="landNoise">
+              <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/>
+              <feDiffuseLighting in="noise" lightingColor="#8b7355" surfaceScale="1.5" result="light">
+                <feDistantLight azimuth="45" elevation="60"/>
+              </feDiffuseLighting>
+              <feBlend in="SourceGraphic" in2="light" mode="multiply"/>
+            </filter>
           </defs>
 
           <image href="/japan-map.jpg" x="-625" y="-150" width="1920" height="1080" style={{ filter: 'brightness(0.9)' }} />
+
+          {/* Land fill layer - renders all province shapes as a base land texture */}
+          {pathData.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            if (!provId) return null;
+            return (
+              <path
+                key={`land-${path.index}`}
+                d={path.d}
+                fill="url(#landTexture)"
+                stroke="none"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
 
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
