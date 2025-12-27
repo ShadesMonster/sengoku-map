@@ -22,139 +22,126 @@ const PATH_TO_PROVINCE = {
 const PRIMARY_PATH_FOR_PROVINCE = { higo: 3, yezo: 69 };
 
 const PROVINCE_DATA = {
-  satsuma: { name: 'Satsuma', resource: 'smithing', neighbors: ['osumi', 'higo'] },
-  osumi: { name: 'Osumi', resource: 'farming', neighbors: ['satsuma', 'hyuga'] },
-  hyuga: { name: 'Hyuga', resource: 'farming', neighbors: ['osumi', 'higo', 'bungo'] },
-  higo: { name: 'Higo', resource: 'horses', neighbors: ['satsuma', 'hyuga', 'bungo', 'chikugo', 'hizen'] },
-  bungo: { name: 'Bungo', resource: 'naval', neighbors: ['hyuga', 'higo', 'buzen', 'chikugo'] },
-  buzen: { name: 'Buzen', resource: 'craftwork', neighbors: ['bungo', 'chikugo', 'chikuzen', 'nagato'] },
-  chikugo: { name: 'Chikugo', resource: 'farming', neighbors: ['higo', 'bungo', 'buzen', 'chikuzen', 'hizen'] },
-  chikuzen: { name: 'Chikuzen', resource: 'philosophical', neighbors: ['buzen', 'chikugo', 'hizen', 'nagato'] },
-  hizen: { name: 'Hizen', resource: 'naval', neighbors: ['higo', 'chikugo', 'chikuzen', 'iki'] },
-  iki: { name: 'Iki', resource: 'naval', neighbors: ['hizen', 'tsushima'] },
-  tsushima: { name: 'Tsushima', resource: 'naval', neighbors: ['iki'] },
-  tosa: { name: 'Tosa', resource: 'forest', neighbors: ['iyo', 'sanuki', 'awa_shikoku'] },
-  iyo: { name: 'Iyo', resource: 'farming', neighbors: ['tosa', 'sanuki'] },
-  sanuki: { name: 'Sanuki', resource: 'stone', neighbors: ['tosa', 'iyo', 'awa_shikoku'] },
-  awa_shikoku: { name: 'Awa', resource: 'horses', neighbors: ['tosa', 'sanuki'] },
-  nagato: { name: 'Nagato', resource: 'farming', neighbors: ['suo', 'iwami', 'buzen', 'chikuzen'] },
-  suo: { name: 'Suo', resource: 'horses', neighbors: ['nagato', 'aki', 'iwami'] },
-  aki: { name: 'Aki', resource: 'hallowed', neighbors: ['suo', 'bingo', 'iwami'] },
-  bingo: { name: 'Bingo', resource: 'naval', neighbors: ['aki', 'bitchu', 'izumo', 'hoki', 'mimasaka'] },
-  bitchu: { name: 'Bitchu', resource: 'farming', neighbors: ['bingo', 'bizen', 'mimasaka'] },
-  bizen: { name: 'Bizen', resource: 'smithing', neighbors: ['bitchu', 'mimasaka', 'harima'] },
-  mimasaka: { name: 'Mimasaka', resource: 'iron', neighbors: ['bitchu', 'bizen', 'bingo', 'hoki', 'harima', 'inaba'] },
-  iwami: { name: 'Iwami', resource: 'gold', neighbors: ['nagato', 'suo', 'aki', 'izumo'] },
-  izumo: { name: 'Izumo', resource: 'farming', neighbors: ['iwami', 'bingo', 'hoki', 'oki'] },
-  hoki: { name: 'Hoki', resource: 'craftwork', neighbors: ['izumo', 'bingo', 'mimasaka', 'inaba'] },
-  inaba: { name: 'Inaba', resource: 'naval', neighbors: ['hoki', 'mimasaka', 'harima', 'tajima'] },
-  oki: { name: 'Oki', resource: 'fishing', neighbors: ['izumo'] },
-  harima: { name: 'Harima', resource: 'farming', neighbors: ['bizen', 'mimasaka', 'inaba', 'tajima', 'tamba', 'settsu'] },
-  tajima: { name: 'Tajima', resource: 'farming', neighbors: ['inaba', 'harima', 'tamba', 'tango'] },
-  tamba: { name: 'Tamba', resource: 'farming', neighbors: ['tajima', 'harima', 'settsu', 'yamashiro', 'tango', 'wakasa'] },
-  tango: { name: 'Tango', resource: 'farming', neighbors: ['tajima', 'tamba', 'wakasa'] },
-  settsu: { name: 'Settsu', resource: 'philosophical', neighbors: ['harima', 'tamba', 'kawachi', 'yamashiro', 'yamato', 'izumi', 'awaji'] },
-  kawachi: { name: 'Kawachi', resource: 'farming', neighbors: ['settsu', 'yamato', 'kii', 'izumi'] },
-  yamashiro: { name: 'Yamashiro', resource: 'philosophical', neighbors: ['tamba', 'settsu', 'omi', 'yamato', 'iga'], special: 'capital' },
-  yamato: { name: 'Yamato', resource: 'hallowed', neighbors: ['yamashiro', 'settsu', 'kawachi', 'kii', 'iga', 'ise'] },
-  kii: { name: 'Kii', resource: 'forest', neighbors: ['kawachi', 'yamato', 'iga', 'ise', 'izumi'] },
-  iga: { name: 'Iga', resource: 'ninja', neighbors: ['yamato', 'kii', 'ise', 'omi', 'yamashiro'] },
-  izumi: { name: 'Izumi', resource: 'farming', neighbors: ['kawachi', 'kii', 'settsu'] },
-  awaji: { name: 'Awaji', resource: 'fishing', neighbors: ['settsu'] },
-  omi: { name: 'Omi', resource: 'farming', neighbors: ['yamashiro', 'iga', 'ise', 'mino', 'wakasa', 'echizen'] },
-  wakasa: { name: 'Wakasa', resource: 'farming', neighbors: ['tango', 'tamba', 'omi', 'echizen'] },
-  echizen: { name: 'Echizen', resource: 'craftwork', neighbors: ['wakasa', 'omi', 'mino', 'kaga', 'hida'] },
-  ise: { name: 'Ise', resource: 'hallowed', neighbors: ['iga', 'omi', 'mino', 'owari', 'kii', 'yamato', 'shima'] },
-  shima: { name: 'Shima', resource: 'naval', neighbors: ['ise'] },
-  mino: { name: 'Mino', resource: 'farming', neighbors: ['omi', 'echizen', 'ise', 'owari', 'hida', 'shinano'] },
-  owari: { name: 'Owari', resource: 'craftwork', neighbors: ['ise', 'mino', 'mikawa'] },
-  mikawa: { name: 'Mikawa', resource: 'horses', neighbors: ['owari', 'totomi', 'shinano'] },
-  totomi: { name: 'Totomi', resource: 'farming', neighbors: ['mikawa', 'suruga', 'shinano'] },
-  suruga: { name: 'Suruga', resource: 'philosophical', neighbors: ['totomi', 'izu', 'kai', 'shinano'] },
-  izu: { name: 'Izu', resource: 'gold', neighbors: ['suruga', 'sagami'] },
-  kaga: { name: 'Kaga', resource: 'smithing', neighbors: ['echizen', 'noto', 'etchu', 'hida'] },
-  noto: { name: 'Noto', resource: 'farming', neighbors: ['kaga', 'etchu'] },
-  etchu: { name: 'Etchu', resource: 'farming', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'shinano'] },
-  hida: { name: 'Hida', resource: 'forest', neighbors: ['echizen', 'kaga', 'etchu', 'mino', 'shinano'] },
-  shinano: { name: 'Shinano', resource: 'stone', neighbors: ['mino', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'etchu', 'echigo', 'kozuke', 'musashi'] },
-  kai: { name: 'Kai', resource: 'horses', neighbors: ['suruga', 'shinano', 'sagami', 'musashi'] },
-  sagami: { name: 'Sagami', resource: 'smithing', neighbors: ['izu', 'kai', 'musashi'] },
-  musashi: { name: 'Musashi', resource: 'farming', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa', 'shinano'] },
-  kozuke: { name: 'Kozuke', resource: 'philosophical', neighbors: ['shinano', 'musashi', 'shimotsuke', 'echigo'] },
-  shimotsuke: { name: 'Shimotsuke', resource: 'hallowed', neighbors: ['kozuke', 'musashi', 'shimosa', 'hitachi', 'dewa'] },
-  shimosa: { name: 'Shimosa', resource: 'farming', neighbors: ['musashi', 'shimotsuke', 'hitachi', 'kazusa'] },
-  kazusa: { name: 'Kazusa', resource: 'farming', neighbors: ['musashi', 'shimosa', 'awa_kanto'] },
-  awa_kanto: { name: 'Awa', resource: 'naval', neighbors: ['kazusa'] },
-  hitachi: { name: 'Hitachi', resource: 'craftwork', neighbors: ['shimotsuke', 'shimosa', 'dewa'] },
-  echigo: { name: 'Echigo', resource: 'naval', neighbors: ['etchu', 'shinano', 'kozuke', 'dewa'] },
-  sado: { name: 'Sado', resource: 'gold', neighbors: ['echigo'] },
-  dewa: { name: 'Dewa', resource: 'stone', neighbors: ['echigo', 'shimotsuke', 'hitachi', 'mutsu'] },
-  mutsu: { name: 'Mutsu', resource: 'horses', neighbors: ['dewa', 'yezo'] },
-  yezo: { name: 'Yezo', resource: 'fishing', neighbors: ['mutsu'] },
+  satsuma: { name: 'Satsuma', neighbors: ['osumi', 'higo'] },
+  osumi: { name: 'Osumi', neighbors: ['satsuma', 'hyuga'] },
+  hyuga: { name: 'Hyuga', neighbors: ['osumi', 'higo', 'bungo'] },
+  higo: { name: 'Higo', neighbors: ['satsuma', 'hyuga', 'bungo', 'chikugo', 'hizen'] },
+  bungo: { name: 'Bungo', neighbors: ['hyuga', 'higo', 'buzen', 'chikugo'] },
+  buzen: { name: 'Buzen', neighbors: ['bungo', 'chikugo', 'chikuzen', 'nagato'] },
+  chikugo: { name: 'Chikugo', neighbors: ['higo', 'bungo', 'buzen', 'chikuzen', 'hizen'] },
+  chikuzen: { name: 'Chikuzen', neighbors: ['buzen', 'chikugo', 'hizen', 'nagato'] },
+  hizen: { name: 'Hizen', neighbors: ['higo', 'chikugo', 'chikuzen', 'iki'] },
+  iki: { name: 'Iki', neighbors: ['hizen', 'tsushima'] },
+  tsushima: { name: 'Tsushima', neighbors: ['iki'] },
+  tosa: { name: 'Tosa', neighbors: ['iyo', 'sanuki', 'awa_shikoku'] },
+  iyo: { name: 'Iyo', neighbors: ['tosa', 'sanuki'] },
+  sanuki: { name: 'Sanuki', neighbors: ['tosa', 'iyo', 'awa_shikoku'] },
+  awa_shikoku: { name: 'Awa', neighbors: ['tosa', 'sanuki'] },
+  nagato: { name: 'Nagato', neighbors: ['suo', 'iwami', 'buzen', 'chikuzen'] },
+  suo: { name: 'Suo', neighbors: ['nagato', 'aki', 'iwami'] },
+  aki: { name: 'Aki', neighbors: ['suo', 'bingo', 'iwami'] },
+  bingo: { name: 'Bingo', neighbors: ['aki', 'bitchu', 'izumo', 'hoki', 'mimasaka'] },
+  bitchu: { name: 'Bitchu', neighbors: ['bingo', 'bizen', 'mimasaka'] },
+  bizen: { name: 'Bizen', neighbors: ['bitchu', 'mimasaka', 'harima'] },
+  mimasaka: { name: 'Mimasaka', neighbors: ['bitchu', 'bizen', 'bingo', 'hoki', 'harima', 'inaba'] },
+  iwami: { name: 'Iwami', neighbors: ['nagato', 'suo', 'aki', 'izumo'] },
+  izumo: { name: 'Izumo', neighbors: ['iwami', 'bingo', 'hoki', 'oki'] },
+  hoki: { name: 'Hoki', neighbors: ['izumo', 'bingo', 'mimasaka', 'inaba'] },
+  inaba: { name: 'Inaba', neighbors: ['hoki', 'mimasaka', 'harima', 'tajima'] },
+  oki: { name: 'Oki', neighbors: ['izumo'] },
+  harima: { name: 'Harima', neighbors: ['bizen', 'mimasaka', 'inaba', 'tajima', 'tamba', 'settsu'] },
+  tajima: { name: 'Tajima', neighbors: ['inaba', 'harima', 'tamba', 'tango'] },
+  tamba: { name: 'Tamba', neighbors: ['tajima', 'harima', 'settsu', 'yamashiro', 'tango', 'wakasa'] },
+  tango: { name: 'Tango', neighbors: ['tajima', 'tamba', 'wakasa'] },
+  settsu: { name: 'Settsu', neighbors: ['harima', 'tamba', 'kawachi', 'yamashiro', 'yamato', 'izumi', 'awaji'] },
+  kawachi: { name: 'Kawachi', neighbors: ['settsu', 'yamato', 'kii', 'izumi'] },
+  yamashiro: { name: 'Yamashiro', neighbors: ['tamba', 'settsu', 'omi', 'yamato', 'iga'], special: 'capital' },
+  yamato: { name: 'Yamato', neighbors: ['yamashiro', 'settsu', 'kawachi', 'kii', 'iga', 'ise'] },
+  kii: { name: 'Kii', neighbors: ['kawachi', 'yamato', 'iga', 'ise', 'izumi'] },
+  iga: { name: 'Iga', neighbors: ['yamato', 'kii', 'ise', 'omi', 'yamashiro'] },
+  izumi: { name: 'Izumi', neighbors: ['kawachi', 'kii', 'settsu'] },
+  awaji: { name: 'Awaji', neighbors: ['settsu'] },
+  omi: { name: 'Omi', neighbors: ['yamashiro', 'iga', 'ise', 'mino', 'wakasa', 'echizen'] },
+  wakasa: { name: 'Wakasa', neighbors: ['tango', 'tamba', 'omi', 'echizen'] },
+  echizen: { name: 'Echizen', neighbors: ['wakasa', 'omi', 'mino', 'kaga', 'hida'] },
+  ise: { name: 'Ise', neighbors: ['iga', 'omi', 'mino', 'owari', 'kii', 'yamato', 'shima'] },
+  shima: { name: 'Shima', neighbors: ['ise'] },
+  mino: { name: 'Mino', neighbors: ['omi', 'echizen', 'ise', 'owari', 'hida', 'shinano'] },
+  owari: { name: 'Owari', neighbors: ['ise', 'mino', 'mikawa'] },
+  mikawa: { name: 'Mikawa', neighbors: ['owari', 'totomi', 'shinano'] },
+  totomi: { name: 'Totomi', neighbors: ['mikawa', 'suruga', 'shinano'] },
+  suruga: { name: 'Suruga', neighbors: ['totomi', 'izu', 'kai', 'shinano'] },
+  izu: { name: 'Izu', neighbors: ['suruga', 'sagami'] },
+  kaga: { name: 'Kaga', neighbors: ['echizen', 'noto', 'etchu', 'hida'] },
+  noto: { name: 'Noto', neighbors: ['kaga', 'etchu'] },
+  etchu: { name: 'Etchu', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'shinano'] },
+  hida: { name: 'Hida', neighbors: ['echizen', 'kaga', 'etchu', 'mino', 'shinano'] },
+  shinano: { name: 'Shinano', neighbors: ['mino', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'etchu', 'echigo', 'kozuke', 'musashi'] },
+  kai: { name: 'Kai', neighbors: ['suruga', 'shinano', 'sagami', 'musashi'] },
+  sagami: { name: 'Sagami', neighbors: ['izu', 'kai', 'musashi'] },
+  musashi: { name: 'Musashi', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa', 'shinano'] },
+  kozuke: { name: 'Kozuke', neighbors: ['shinano', 'musashi', 'shimotsuke', 'echigo'] },
+  shimotsuke: { name: 'Shimotsuke', neighbors: ['kozuke', 'musashi', 'shimosa', 'hitachi', 'dewa'] },
+  shimosa: { name: 'Shimosa', neighbors: ['musashi', 'shimotsuke', 'hitachi', 'kazusa'] },
+  kazusa: { name: 'Kazusa', neighbors: ['musashi', 'shimosa', 'awa_kanto'] },
+  awa_kanto: { name: 'Awa', neighbors: ['kazusa'] },
+  hitachi: { name: 'Hitachi', neighbors: ['shimotsuke', 'shimosa', 'dewa'] },
+  echigo: { name: 'Echigo', neighbors: ['etchu', 'shinano', 'kozuke', 'dewa'] },
+  sado: { name: 'Sado', neighbors: ['echigo'] },
+  dewa: { name: 'Dewa', neighbors: ['echigo', 'shimotsuke', 'hitachi', 'mutsu'] },
+  mutsu: { name: 'Mutsu', neighbors: ['dewa', 'yezo'] },
+  yezo: { name: 'Yezo', neighbors: ['mutsu'] },
 };
 
 const CLANS = {
-  shimazu: { id: 'shimazu', name: 'Shimazu', color: '#DC2626', provinces: ['satsuma', 'osumi'] },
-  chosokabe: { id: 'chosokabe', name: 'Chōsokabe', color: '#F59E0B', provinces: ['tosa'] },
-  mori: { id: 'mori', name: 'Mōri', color: '#059669', provinces: ['aki', 'suo', 'nagato'] },
-  oda: { id: 'oda', name: 'Oda', color: '#3B82F6', provinces: ['owari'] },
-  takeda: { id: 'takeda', name: 'Takeda', color: '#7C3AED', provinces: ['kai'] },
-  uesugi: { id: 'uesugi', name: 'Uesugi', color: '#0891B2', provinces: ['echigo'] },
-  hojo: { id: 'hojo', name: 'Hōjō', color: '#DB2777', provinces: ['sagami', 'izu', 'musashi'] },
-  date: { id: 'date', name: 'Date', color: '#4F46E5', provinces: ['mutsu', 'dewa'] },
-  tokugawa: { id: 'tokugawa', name: 'Tokugawa', color: '#65A30D', provinces: ['mikawa'] },
-  imagawa: { id: 'imagawa', name: 'Imagawa', color: '#EA580C', provinces: ['suruga', 'totomi'] },
-  uncontrolled: { id: 'uncontrolled', name: 'Neutral', color: '#78716c', provinces: [] },
+  shimazu: { id: 'shimazu', name: 'Shimazu', color: '#8B0000', provinces: ['satsuma', 'osumi'] },
+  chosokabe: { id: 'chosokabe', name: 'Chosokabe', color: '#DAA520', provinces: ['tosa'] },
+  mori: { id: 'mori', name: 'Mori', color: '#228B22', provinces: ['aki', 'suo', 'nagato'] },
+  oda: { id: 'oda', name: 'Oda', color: '#4169E1', provinces: ['owari'] },
+  takeda: { id: 'takeda', name: 'Takeda', color: '#663399', provinces: ['kai'] },
+  uesugi: { id: 'uesugi', name: 'Uesugi', color: '#008B8B', provinces: ['echigo'] },
+  hojo: { id: 'hojo', name: 'Hojo', color: '#C71585', provinces: ['sagami', 'izu', 'musashi'] },
+  date: { id: 'date', name: 'Date', color: '#4B0082', provinces: ['mutsu', 'dewa'] },
+  tokugawa: { id: 'tokugawa', name: 'Tokugawa', color: '#556B2F', provinces: ['mikawa'] },
+  imagawa: { id: 'imagawa', name: 'Imagawa', color: '#D2691E', provinces: ['suruga', 'totomi'] },
+  uncontrolled: { id: 'uncontrolled', name: 'Neutral', color: '#5c5347', provinces: [] },
 };
 
-const RESOURCES = {
-  smithing: { icon: '⚔️', name: 'Smithing', desc: 'Weapon production' },
-  horses: { icon: '🐎', name: 'Horses', desc: 'Cavalry units' },
-  gold: { icon: '💰', name: 'Gold', desc: 'Treasury income' },
-  iron: { icon: '⛏️', name: 'Iron', desc: 'Armor production' },
-  farming: { icon: '🌾', name: 'Farming', desc: 'Food & population' },
-  naval: { icon: '⚓', name: 'Naval', desc: 'Ship building' },
-  craftwork: { icon: '🏺', name: 'Craftwork', desc: 'Trade goods' },
-  ninja: { icon: '🥷', name: 'Ninja', desc: 'Espionage' },
-  hallowed: { icon: '⛩️', name: 'Sacred', desc: 'Legitimacy & morale' },
-  philosophical: { icon: '📜', name: 'Learning', desc: 'Technology' },
-  forest: { icon: '🌲', name: 'Timber', desc: 'Construction' },
-  stone: { icon: '🪨', name: 'Stone', desc: 'Fortifications' },
-  fishing: { icon: '🐟', name: 'Fishing', desc: 'Coastal food' },
-};
-
-// Calculate time until next Thursday midnight (end of planning phase)
 const getTimeUntilDeadline = () => {
   const now = new Date();
-  const dayOfWeek = now.getDay(); // 0 = Sunday, 4 = Thursday
+  const dayOfWeek = now.getDay();
   let daysUntilThursday = (4 - dayOfWeek + 7) % 7;
-  if (daysUntilThursday === 0 && now.getHours() >= 23 && now.getMinutes() >= 59) {
-    daysUntilThursday = 7;
-  }
-  
+  if (daysUntilThursday === 0 && now.getHours() >= 23) daysUntilThursday = 7;
   const nextThursday = new Date(now);
   nextThursday.setDate(now.getDate() + daysUntilThursday);
   nextThursday.setHours(23, 59, 59, 999);
-  
   const diff = nextThursday - now;
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  
-  return { days, hours, minutes, total: diff };
+  return {
+    days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+    hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+    minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  };
 };
 
-// Get current phase based on day of week
 const getCurrentPhase = () => {
   const day = new Date().getDay();
-  if (day === 5) return { phase: 'BATTLE', label: 'Battle Day', color: '#DC2626' }; // Friday
-  if (day === 6 || day === 0) return { phase: 'BATTLE', label: 'Battle Weekend', color: '#DC2626' }; // Sat/Sun
-  return { phase: 'PLANNING', label: 'Planning Phase', color: '#3B82F6' }; // Mon-Thu
+  if (day === 5 || day === 6 || day === 0) return { phase: 'BATTLE', label: '合戦', color: '#8B0000' };
+  return { phase: 'PLANNING', label: '軍議', color: '#2d5016' };
+};
+
+// Style constants
+const S = {
+  woodDark: '#2c1810',
+  woodMid: '#4a3728',
+  woodLight: '#6b4c3a',
+  parchment: '#d4c4a8',
+  parchmentDark: '#b8a88c',
+  red: '#8B0000',
+  gold: '#b8860b',
 };
 
 export default function SengokuMap() {
   const svgRef = useRef(null);
-  const containerRef = useRef(null);
   const [pathData, setPathData] = useState([]);
   const [provinceCenters, setProvinceCenters] = useState({});
   const [selected, setSelected] = useState(null);
@@ -173,113 +160,91 @@ export default function SengokuMap() {
   });
   const [clan, setClan] = useState('oda');
   const [admin, setAdmin] = useState(false);
-  const [committedMoves, setCommittedMoves] = useState([]); // Locked in moves
-  const [pendingMoves, setPendingMoves] = useState([]); // Can still be changed
+  const [committedMoves, setCommittedMoves] = useState([]);
+  const [pendingMoves, setPendingMoves] = useState([]);
   const [selectedArmy, setSelectedArmy] = useState(null);
   const [timeUntilDeadline, setTimeUntilDeadline] = useState(getTimeUntilDeadline());
   const [currentPhase, setCurrentPhase] = useState(getCurrentPhase());
   const [tooltip, setTooltip] = useState(null);
-  
-  // Pan and zoom state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 732, h: 777 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
 
-  // Update countdown timer
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeUntilDeadline(getTimeUntilDeadline());
       setCurrentPhase(getCurrentPhase());
-    }, 60000); // Update every minute
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Load SVG
   useEffect(() => {
-    fetch('/japan-provinces.svg')
-      .then(res => res.text())
-      .then(svg => {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(svg, 'image/svg+xml');
-        const paths = doc.querySelectorAll('path');
-        
-        const extracted = [];
-        paths.forEach((path) => {
-          const d = path.getAttribute('d');
-          const id = path.getAttribute('id');
-          const style = path.getAttribute('style') || '';
-          if (!d || d.trim() === '' || style.includes('fill:#daf0fd')) return;
-          extracted.push({ index: extracted.length, id, d });
-        });
-        
-        setPathData(extracted);
+    fetch('/japan-provinces.svg').then(r => r.text()).then(svg => {
+      const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      const paths = doc.querySelectorAll('path');
+      const extracted = [];
+      paths.forEach(path => {
+        const d = path.getAttribute('d');
+        const style = path.getAttribute('style') || '';
+        if (d && d.trim() && !style.includes('fill:#daf0fd')) {
+          extracted.push({ index: extracted.length, id: path.getAttribute('id'), d });
+        }
       });
+      setPathData(extracted);
+    });
   }, []);
 
-  // Calculate province centers
   useEffect(() => {
-    if (!svgRef.current || pathData.length === 0) return;
-    
+    if (!svgRef.current || !pathData.length) return;
     const centers = {};
-    const provincePathGroups = {};
-    
+    const groups = {};
     pathData.forEach((_, idx) => {
       const provId = PATH_TO_PROVINCE[idx];
-      if (!provId) return;
-      if (!provincePathGroups[provId]) provincePathGroups[provId] = [];
-      provincePathGroups[provId].push(idx);
+      if (provId) {
+        if (!groups[provId]) groups[provId] = [];
+        groups[provId].push(idx);
+      }
     });
-    
-    Object.entries(provincePathGroups).forEach(([provId, pathIndices]) => {
-      const primaryIdx = PRIMARY_PATH_FOR_PROVINCE[provId] ?? pathIndices[0];
-      const pathEl = svgRef.current.querySelector(`#province-path-${primaryIdx}`);
-      
-      if (pathEl) {
+    Object.entries(groups).forEach(([provId, indices]) => {
+      const idx = PRIMARY_PATH_FOR_PROVINCE[provId] ?? indices[0];
+      const el = svgRef.current.querySelector(`#province-path-${idx}`);
+      if (el) {
         try {
-          const bbox = pathEl.getBBox();
+          const bbox = el.getBBox();
           centers[provId] = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
         } catch (e) {}
       }
     });
-    
     setProvinceCenters(centers);
   }, [pathData]);
 
-  // Load from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('sengoku-game-state');
     if (saved) {
       try {
-        const state = JSON.parse(saved);
-        if (state.provinces) setProvinces(state.provinces);
-        if (state.week) setWeek(state.week);
-        if (state.committedMoves) setCommittedMoves(state.committedMoves);
-        if (state.pendingMoves) setPendingMoves(state.pendingMoves);
+        const s = JSON.parse(saved);
+        if (s.provinces) setProvinces(s.provinces);
+        if (s.week) setWeek(s.week);
+        if (s.committedMoves) setCommittedMoves(s.committedMoves);
+        if (s.pendingMoves) setPendingMoves(s.pendingMoves);
       } catch (e) {}
     }
   }, []);
 
-  // Save to localStorage
   useEffect(() => {
-    const state = { provinces, week, committedMoves, pendingMoves };
-    localStorage.setItem('sengoku-game-state', JSON.stringify(state));
+    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, week, committedMoves, pendingMoves }));
   }, [provinces, week, committedMoves, pendingMoves]);
 
-  // Pan and zoom handlers
   const handleWheel = (e) => {
     e.preventDefault();
-    const scaleFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    const svg = svgRef.current;
-    const rect = svg.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-    const svgX = viewBox.x + (mouseX / rect.width) * viewBox.w;
-    const svgY = viewBox.y + (mouseY / rect.height) * viewBox.h;
-    const newW = Math.max(200, Math.min(1500, viewBox.w * scaleFactor));
-    const newH = Math.max(200, Math.min(1600, viewBox.h * scaleFactor));
-    const newX = svgX - (mouseX / rect.width) * newW;
-    const newY = svgY - (mouseY / rect.height) * newH;
-    setViewBox({ x: newX, y: newY, w: newW, h: newH });
+    const scale = e.deltaY > 0 ? 1.1 : 0.9;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const svgX = viewBox.x + (mx / rect.width) * viewBox.w;
+    const svgY = viewBox.y + (my / rect.height) * viewBox.h;
+    const nw = Math.max(200, Math.min(1500, viewBox.w * scale));
+    const nh = Math.max(200, Math.min(1600, viewBox.h * scale));
+    setViewBox({ x: svgX - (mx / rect.width) * nw, y: svgY - (my / rect.height) * nh, w: nw, h: nh });
   };
 
   const handleMouseDown = (e) => {
@@ -292,396 +257,229 @@ export default function SengokuMap() {
 
   const handleMouseMove = (e) => {
     if (!isPanning) return;
-    const svg = svgRef.current;
-    const rect = svg.getBoundingClientRect();
+    const rect = svgRef.current.getBoundingClientRect();
     const dx = (e.clientX - panStart.x) * (viewBox.w / rect.width);
     const dy = (e.clientY - panStart.y) * (viewBox.h / rect.height);
-    setViewBox(prev => ({ ...prev, x: prev.x - dx, y: prev.y - dy }));
+    setViewBox(v => ({ ...v, x: v.x - dx, y: v.y - dy }));
     setPanStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseUp = () => setIsPanning(false);
-  const resetView = () => setViewBox({ x: 0, y: 0, w: 732, h: 777 });
 
-  const getProvinceId = (pathIndex) => PATH_TO_PROVINCE[pathIndex] || null;
-  const getColor = (provId) => {
-    if (!provId || !provinces[provId]) return '#78716c';
-    return CLANS[provinces[provId].owner]?.color || '#78716c';
-  };
+  const getColor = (provId) => CLANS[provinces[provId]?.owner]?.color || '#5c5347';
 
-  // Get clan border color for territory outlines
-  const getClanBorderColor = (provId) => {
-    if (!provId || !provinces[provId]) return null;
-    const owner = provinces[provId].owner;
-    if (owner === 'uncontrolled') return null;
-    return CLANS[owner]?.color;
-  };
-
-  const handleProvinceClick = (index, e) => {
+  const handleProvinceClick = (idx) => {
     if (isPanning) return;
-    const provId = getProvinceId(index);
+    const provId = PATH_TO_PROVINCE[idx];
     if (!provId) return;
-    
     if (selectedArmy && provinces[selectedArmy].neighbors.includes(provId)) {
-      // Add to pending moves (can still be changed)
-      const existingMove = pendingMoves.find(m => m.from === selectedArmy && m.clan === clan);
-      if (existingMove) {
-        setPendingMoves(pendingMoves.map(m => m.id === existingMove.id ? { ...m, to: provId } : m));
+      const existing = pendingMoves.find(m => m.from === selectedArmy && m.clan === clan);
+      if (existing) {
+        setPendingMoves(pendingMoves.map(m => m.id === existing.id ? { ...m, to: provId } : m));
       } else {
-        setPendingMoves([...pendingMoves, { id: Date.now(), from: selectedArmy, to: provId, clan, committed: false }]);
+        setPendingMoves([...pendingMoves, { id: Date.now(), from: selectedArmy, to: provId, clan }]);
       }
       setSelectedArmy(null);
       return;
     }
-    
     setSelected(provId);
     setSelectedArmy(null);
   };
 
-  const handleProvinceHover = (e, provId) => {
-    if (!provId || !provinces[provId]) {
-      setTooltip(null);
-      return;
-    }
-    const prov = provinces[provId];
-    setTooltip({
-      x: e.clientX,
-      y: e.clientY,
-      province: prov,
-      provId
-    });
-  };
-
   const startArmyMove = (provId) => {
-    if (currentPhase.phase === 'BATTLE') return; // Can't plan during battles
-    if (provinces[provId].owner === clan && provinces[provId].armies > 0) {
-      setSelectedArmy(provId);
-    }
+    if (currentPhase.phase === 'BATTLE') return;
+    if (provinces[provId].owner === clan && provinces[provId].armies > 0) setSelectedArmy(provId);
   };
 
-  const commitMove = (moveId) => {
-    const move = pendingMoves.find(m => m.id === moveId);
+  const commitMove = (id) => {
+    const move = pendingMoves.find(m => m.id === id);
     if (move) {
-      setPendingMoves(pendingMoves.filter(m => m.id !== moveId));
+      setPendingMoves(pendingMoves.filter(m => m.id !== id));
       setCommittedMoves([...committedMoves, { ...move, committedAt: Date.now() }]);
     }
   };
 
-  const uncommitMove = (moveId) => {
-    const move = committedMoves.find(m => m.id === moveId);
-    if (move) {
-      // Check if within 12 hour window
-      const hoursSinceCommit = (Date.now() - move.committedAt) / (1000 * 60 * 60);
-      if (hoursSinceCommit < 12) {
-        setCommittedMoves(committedMoves.filter(m => m.id !== moveId));
-        setPendingMoves([...pendingMoves, { ...move, committed: false }]);
-      }
+  const uncommitMove = (id) => {
+    const move = committedMoves.find(m => m.id === id);
+    if (move && (Date.now() - move.committedAt) / 3600000 < 12) {
+      setCommittedMoves(committedMoves.filter(m => m.id !== id));
+      setPendingMoves([...pendingMoves, move]);
     }
   };
 
-  const cancelPendingMove = (moveId) => {
-    setPendingMoves(pendingMoves.filter(m => m.id !== moveId));
-  };
-
-  const cancelMove = () => setSelectedArmy(null);
-
-  // Admin functions
-  const changeOwner = (id, newOwner) => setProvinces({ ...provinces, [id]: { ...provinces[id], owner: newOwner } });
-  const addArmy = (id) => setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies + 1 } });
-  const removeArmy = (id) => {
-    if (provinces[id].armies > 0) setProvinces({ ...provinces, [id]: { ...provinces[id], armies: provinces[id].armies - 1 } });
-  };
-  const setRallyCapacity = (id, capacity) => setProvinces({ ...provinces, [id]: { ...provinces[id], rallyCapacity: parseInt(capacity) || 0 } });
-  const advanceWeek = () => setWeek(w => w + 1);
-
-  const getPathIndicesForProvince = (provId) => {
-    const indices = [];
-    Object.entries(PATH_TO_PROVINCE).forEach(([idx, pId]) => {
-      if (pId === provId) indices.push(parseInt(idx));
-    });
-    return indices;
-  };
-
-  // Sort paths for layering
-  const sortedPathData = [...pathData].sort((a, b) => {
-    const provA = getProvinceId(a.index);
-    const provB = getProvinceId(b.index);
-    const aSelected = provA === selected || provA === selectedArmy;
-    const bSelected = provB === selected || provB === selectedArmy;
-    const aHovered = hovered === provA;
-    const bHovered = hovered === provB;
-    
-    if (aSelected && !bSelected) return 1;
-    if (bSelected && !aSelected) return -1;
-    if (aHovered && !bHovered) return 1;
-    if (bHovered && !aHovered) return -1;
+  const sortedPaths = [...pathData].sort((a, b) => {
+    const pA = PATH_TO_PROVINCE[a.index], pB = PATH_TO_PROVINCE[b.index];
+    const selA = pA === selected || pA === selectedArmy, selB = pB === selected || pB === selectedArmy;
+    const hovA = hovered === pA, hovB = hovered === pB;
+    if (selA && !selB) return 1;
+    if (selB && !selA) return -1;
+    if (hovA && !hovB) return 1;
+    if (hovB && !hovA) return -1;
     return 0;
   });
 
-  // Get all moves for current clan
-  const clanPendingMoves = pendingMoves.filter(m => m.clan === clan);
-  const clanCommittedMoves = committedMoves.filter(m => m.clan === clan);
-  const allClanMoves = [...clanPendingMoves, ...clanCommittedMoves];
+  const isZoomedIn = viewBox.w < 500;
+  const clanPending = pendingMoves.filter(m => m.clan === clan);
+  const clanCommitted = committedMoves.filter(m => m.clan === clan);
 
   return (
-    <div className="w-full h-screen bg-slate-900 flex">
-      {/* Map Area */}
-      <div className="flex-1 relative overflow-hidden" ref={containerRef}>
+    <div className="w-full h-screen flex" style={{ background: `linear-gradient(135deg, ${S.woodDark} 0%, #1a0f0a 100%)`, fontFamily: "'Cinzel', serif" }}>
+      <div className="flex-1 relative overflow-hidden">
+        
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 h-14 bg-gradient-to-b from-slate-900/95 to-transparent z-10 flex items-center px-4 gap-4">
-          <h1 className="text-2xl font-bold" style={{ color: '#C9A227', fontFamily: 'serif' }}>
-            戦国 <span className="text-lg text-slate-300">SENGOKU</span>
-          </h1>
-          
-          <div className="ml-4 bg-slate-800/80 rounded px-3 py-1 border border-slate-700">
-            <span className="text-slate-400 text-xs">WEEK</span>
-            <span className="text-amber-400 font-bold text-xl ml-2">{week}</span>
-          </div>
-
-          {/* Phase indicator */}
-          <div className="bg-slate-800/80 rounded px-3 py-1 border border-slate-700">
-            <span className="text-xs font-bold" style={{ color: currentPhase.color }}>{currentPhase.label}</span>
-          </div>
-
-          {/* Countdown */}
-          {currentPhase.phase === 'PLANNING' && (
-            <div className="bg-slate-800/80 rounded px-3 py-1 border border-slate-700">
-              <span className="text-slate-400 text-xs">Orders lock in: </span>
-              <span className="text-amber-400 text-sm font-mono">
-                {timeUntilDeadline.days}d {timeUntilDeadline.hours}h {timeUntilDeadline.minutes}m
-              </span>
+        <div className="absolute top-0 left-0 right-0 z-10" style={{ background: `linear-gradient(180deg, ${S.woodMid} 0%, ${S.woodDark} 100%)`, borderBottom: `3px solid ${S.woodLight}` }}>
+          <div className="flex items-center px-6 py-3 gap-6">
+            <div className="flex items-center gap-3">
+              <span style={{ color: S.gold, fontSize: '28px', fontWeight: '700' }}>戦国</span>
+              <span style={{ color: S.parchment, fontSize: '14px', letterSpacing: '3px' }}>SENGOKU</span>
             </div>
-          )}
+            
+            <div className="relative flex items-center justify-center" style={{ width: '60px', height: '60px' }}>
+              <svg viewBox="0 0 60 60" className="absolute inset-0">
+                <circle cx="30" cy="30" r="25" fill="none" stroke={S.gold} strokeWidth="2" strokeDasharray="4 2" />
+              </svg>
+              <div className="text-center">
+                <div style={{ color: S.parchmentDark, fontSize: '8px' }}>WEEK</div>
+                <div style={{ color: S.gold, fontSize: '20px', fontWeight: '700' }}>{week}</div>
+              </div>
+            </div>
 
-          <div className="flex-1" />
-          
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-sm">Playing as:</span>
-            <select
-              value={clan}
-              onChange={e => setClan(e.target.value)}
-              className="bg-slate-800 border border-slate-600 rounded px-2 py-1 font-bold"
-              style={{ color: CLANS[clan]?.color }}
-            >
+            <div style={{ background: currentPhase.color, padding: '8px 20px', clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)' }}>
+              <span style={{ color: S.parchment, fontSize: '12px', fontWeight: '600' }}>{currentPhase.label}</span>
+            </div>
+
+            {currentPhase.phase === 'PLANNING' && (
+              <div style={{ color: S.parchmentDark, fontSize: '11px' }}>
+                <span style={{ opacity: 0.7 }}>Orders lock: </span>
+                <span style={{ color: S.gold, fontFamily: 'monospace' }}>{timeUntilDeadline.days}d {timeUntilDeadline.hours}h {timeUntilDeadline.minutes}m</span>
+              </div>
+            )}
+
+            <div className="flex-1" />
+
+            <select value={clan} onChange={e => setClan(e.target.value)} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: CLANS[clan]?.color, padding: '6px 12px', fontFamily: 'inherit', fontWeight: '600' }}>
               {Object.entries(CLANS).filter(([id]) => id !== 'uncontrolled').map(([id, c]) => (
-                <option key={id} value={id} style={{ color: '#fff', background: '#1e293b' }}>{c.name}</option>
+                <option key={id} value={id} style={{ background: S.woodDark, color: S.parchment }}>{c.name}</option>
               ))}
             </select>
+
+            <button onClick={() => setAdmin(!admin)} style={{ background: admin ? S.red : S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, padding: '6px 14px', fontSize: '11px' }}>
+              {admin ? '奉行 ON' : '奉行'}
+            </button>
           </div>
-          
-          <button
-            onClick={() => setAdmin(!admin)}
-            className={`px-3 py-1 rounded text-sm font-medium transition ${admin ? 'bg-red-700 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
-          >
-            {admin ? '🔓 Admin Mode' : '🔒 Admin'}
-          </button>
         </div>
 
-        {/* Zoom controls */}
-        <div className="absolute top-16 right-4 z-20 flex flex-col gap-1">
-          <button onClick={() => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) }))}
-            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold">+</button>
-          <button onClick={() => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) }))}
-            className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-lg font-bold">−</button>
-          <button onClick={resetView} className="w-8 h-8 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 rounded text-white text-xs" title="Reset view">⟲</button>
+        {/* Zoom */}
+        <div className="absolute top-24 right-4 z-20 flex flex-col gap-1">
+          {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) })) },
+            { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) })) },
+            { l: '◯', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }) }].map((b, i) => (
+            <button key={i} onClick={b.a} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
+          ))}
         </div>
 
-        {/* SVG Map */}
-        <svg
-          ref={svgRef}
-          viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}
-          className="w-full h-full"
-          style={{ cursor: isPanning ? 'grabbing' : 'default' }}
-          onWheel={handleWheel}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        >
+        {/* Map */}
+        <svg ref={svgRef} viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`} className="w-full h-full" style={{ cursor: isPanning ? 'grabbing' : 'default' }}
+          onWheel={handleWheel} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
           <defs>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            <filter id="shadow">
-              <feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.5"/>
-            </filter>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#fbbf24" />
-            </marker>
-            <marker id="arrowhead-committed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" />
-            </marker>
+            <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+            <filter id="shadow"><feDropShadow dx="0" dy="1" stdDeviation="1" floodOpacity="0.5"/></filter>
+            <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill={S.gold} /></marker>
+            <marker id="arrow-c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2d5016" /></marker>
           </defs>
 
-          {/* Background image */}
           <image href="/japan-map.jpg" x="-625" y="-150" width="1920" height="1080" opacity="0.5" />
 
-          {/* Province paths */}
-          {sortedPathData.map((path) => {
-            const idx = path.index;
-            const provId = getProvinceId(idx);
-            const isSelected = provId === selected;
-            const isHovered = hovered === provId;
-            const isValidTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
-            const isArmySelected = provId === selectedArmy;
-            const borderColor = getClanBorderColor(provId);
-            
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const isSel = provId === selected, isHov = hovered === provId;
+            const isArmy = provId === selectedArmy;
+            const isTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
+            const border = provId && provinces[provId]?.owner !== 'uncontrolled' ? CLANS[provinces[provId].owner]?.color : null;
             return (
-              <path
-                key={path.id || idx}
-                id={`province-path-${idx}`}
-                d={path.d}
-                fill={provId ? getColor(provId) : '#64748b'}
-                fillOpacity={isSelected || isArmySelected ? 0.95 : isHovered ? 0.85 : 0.7}
-                stroke={isArmySelected ? '#22c55e' : isSelected ? '#fbbf24' : isValidTarget ? '#86efac' : borderColor || '#334155'}
-                strokeWidth={isSelected || isArmySelected ? 3 : isValidTarget ? 2.5 : borderColor ? 2 : 1}
-                filter={isSelected || isArmySelected ? 'url(#glow)' : undefined}
+              <path key={path.index} id={`province-path-${path.index}`} d={path.d}
+                fill={provId ? getColor(provId) : '#5c5347'}
+                fillOpacity={isSel || isArmy ? 0.95 : isHov ? 0.85 : 0.7}
+                stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : border || '#3d3529'}
+                strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : border ? 2 : 1}
+                filter={isSel || isArmy ? 'url(#glow)' : undefined}
                 style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
-                onClick={(e) => handleProvinceClick(idx, e)}
-                onMouseEnter={(e) => { provId && setHovered(provId); handleProvinceHover(e, provId); }}
-                onMouseMove={(e) => handleProvinceHover(e, provId)}
-                onMouseLeave={() => { setHovered(null); setTooltip(null); }}
+                onClick={() => handleProvinceClick(path.index)}
+                onMouseEnter={() => provId && setHovered(provId)}
+                onMouseLeave={() => setHovered(null)}
               />
             );
           })}
 
-          {/* Province labels */}
-          {Object.entries(provinceCenters).map(([provId, center]) => {
-            if (!provinces[provId]) return null;
+          {Object.entries(provinceCenters).map(([provId, c]) => {
             const prov = provinces[provId];
-            const isOwned = prov.owner !== 'uncontrolled';
-            const isZoomedIn = viewBox.w < 500; // Show labels only when zoomed in
-            
+            if (!prov) return null;
+            const owned = prov.owner !== 'uncontrolled';
             return (
-              <g key={`label-${provId}`} style={{ pointerEvents: 'none' }}>
-                {/* Province name - only show when zoomed in */}
-                {isZoomedIn && (
-                  <text x={center.x} y={center.y - (isOwned && prov.armies > 0 ? 6 : 0)}
-                    textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill="#fff" fontFamily="serif"
-                    letterSpacing="0.5"
-                    style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000, 1px -1px 2px #000, -1px 1px 2px #000' }}>
-                    {PROVINCE_DATA[provId]?.name.toUpperCase()}
-                  </text>
-                )}
-                
-                {/* Army indicators - small banner below name */}
-                {isOwned && prov.armies > 0 && (
-                  <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }}
-                    style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
-                    {/* Banner shape */}
-                    <path 
-                      d={`M${center.x - 6} ${center.y + (isZoomedIn ? 2 : -4)} 
-                          h12 
-                          v8 
-                          l-3 -2 
-                          l-3 2 
-                          l-3 -2 
-                          l-3 2 
-                          v-8 z`}
-                      fill={CLANS[prov.owner]?.color || '#1e293b'} 
-                      stroke={prov.owner === clan ? '#fbbf24' : '#000'} 
-                      strokeWidth="1"
-                      filter="url(#shadow)"
-                    />
-                    <text x={center.x} y={center.y + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff"
-                      style={{ textShadow: '0 0 2px #000' }}>
-                      {prov.armies}
-                    </text>
+              <g key={provId} style={{ pointerEvents: 'none' }}>
+                {isZoomedIn && <text x={c.x} y={c.y - (owned && prov.armies > 0 ? 6 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
+                {owned && prov.armies > 0 && (
+                  <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }} style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
+                    <path d={`M${c.x - 6} ${c.y + (isZoomedIn ? 2 : -4)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[prov.owner]?.color} stroke={prov.owner === clan ? S.gold : '#000'} strokeWidth="1" filter="url(#shadow)" />
+                    <text x={c.x} y={c.y + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{prov.armies}</text>
                   </g>
                 )}
               </g>
             );
           })}
 
-          {/* Movement arrows - Pending (yellow dashed) */}
-          {clanPendingMoves.map(move => {
-            const from = provinceCenters[move.from];
-            const to = provinceCenters[move.to];
-            if (!from || !to) return null;
-            return (
-              <line key={move.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                stroke="#fbbf24" strokeWidth="3" strokeDasharray="8,4"
-                markerEnd="url(#arrowhead)" opacity="0.8" />
-            );
+          {clanPending.map(m => {
+            const f = provinceCenters[m.from], t = provinceCenters[m.to];
+            return f && t ? <line key={m.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={S.gold} strokeWidth="3" strokeDasharray="8,4" markerEnd="url(#arrow)" opacity="0.8" /> : null;
           })}
-
-          {/* Movement arrows - Committed (green solid) */}
-          {clanCommittedMoves.map(move => {
-            const from = provinceCenters[move.from];
-            const to = provinceCenters[move.to];
-            if (!from || !to) return null;
-            return (
-              <line key={move.id} x1={from.x} y1={from.y} x2={to.x} y2={to.y}
-                stroke="#22c55e" strokeWidth="3"
-                markerEnd="url(#arrowhead-committed)" opacity="0.9" />
-            );
+          {clanCommitted.map(m => {
+            const f = provinceCenters[m.from], t = provinceCenters[m.to];
+            return f && t ? <line key={m.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke="#2d5016" strokeWidth="3" markerEnd="url(#arrow-c)" opacity="0.9" /> : null;
           })}
         </svg>
 
         {/* Tooltip */}
         {tooltip && (
-          <div className="fixed bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 p-2 z-50 pointer-events-none"
-            style={{ left: tooltip.x + 10, top: tooltip.y + 10 }}>
-            <p className="font-bold text-white" style={{ fontFamily: 'serif' }}>{tooltip.province.name}</p>
-            <p className="text-xs" style={{ color: getColor(tooltip.provId) }}>{CLANS[tooltip.province.owner]?.name || 'Neutral'}</p>
-            {tooltip.province.armies > 0 && <p className="text-xs text-slate-300">⚔️ {tooltip.province.armies} armies</p>}
+          <div className="fixed z-50 pointer-events-none" style={{ left: tooltip.x + 15, top: tooltip.y + 15, background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: '8px 12px' }}>
+            <p style={{ color: S.parchment, fontWeight: '600' }}>{tooltip.province.name}</p>
+            <p style={{ color: getColor(tooltip.provId), fontSize: '11px' }}>{CLANS[tooltip.province.owner]?.name || 'Neutral'}</p>
           </div>
         )}
 
-        {/* Army Movement UI */}
+        {/* Army Move UI */}
         {selectedArmy && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 p-4 z-20 shadow-xl">
-            <p className="text-white font-medium mb-2">
-              Moving army from <span className="text-amber-400 font-bold">{provinces[selectedArmy]?.name}</span>
-            </p>
-            <p className="text-green-400 text-sm mb-3">Click a neighboring province (highlighted in green)</p>
-            <button onClick={cancelMove} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-white text-sm">Cancel</button>
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20" style={{ background: S.woodMid, border: `3px solid ${S.woodLight}`, padding: '16px 24px' }}>
+            <p style={{ color: S.parchment }}>進軍元 <span style={{ color: S.gold, fontWeight: '600' }}>{provinces[selectedArmy]?.name}</span></p>
+            <p style={{ color: '#4a7c23', fontSize: '12px', margin: '8px 0' }}>Select destination</p>
+            <button onClick={() => setSelectedArmy(null)} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, padding: '8px 16px', fontSize: '12px' }}>Cancel</button>
           </div>
         )}
 
-        {/* Orders Panel */}
-        {(clanPendingMoves.length > 0 || clanCommittedMoves.length > 0) && (
-          <div className="absolute bottom-4 right-4 w-72 bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 z-20 overflow-hidden shadow-xl">
-            <div className="p-3 border-b border-slate-700">
-              <h3 className="text-white font-bold text-sm">📋 Army Orders</h3>
+        {/* Orders */}
+        {(clanPending.length > 0 || clanCommitted.length > 0) && (
+          <div className="absolute bottom-4 right-4 z-20" style={{ width: 280, background: S.woodMid, border: `3px solid ${S.woodLight}` }}>
+            <div style={{ padding: '12px 16px', borderBottom: `2px solid ${S.woodLight}` }}>
+              <h3 style={{ color: S.parchment, fontSize: '14px', fontWeight: '600' }}>軍令 Orders</h3>
             </div>
-            <div className="p-2 space-y-2 max-h-64 overflow-y-auto">
-              {/* Pending moves */}
-              {clanPendingMoves.map(m => (
-                <div key={m.id} className="bg-amber-900/30 border border-amber-700/50 rounded p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-white">{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
+            <div style={{ padding: 8, maxHeight: 200, overflowY: 'auto' }}>
+              {clanPending.map(m => (
+                <div key={m.id} style={{ background: 'rgba(184,134,11,0.2)', border: `1px solid ${S.gold}`, marginBottom: 8, padding: 8 }}>
+                  <div style={{ color: S.parchment, fontSize: 12 }}>{provinces[m.from]?.name} → {provinces[m.to]?.name}</div>
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => commitMove(m.id)} style={{ flex: 1, background: '#2d5016', border: 'none', color: S.parchment, padding: '4px', fontSize: 10 }}>Commit</button>
+                    <button onClick={() => setPendingMoves(pendingMoves.filter(x => x.id !== m.id))} style={{ flex: 1, background: S.red, border: 'none', color: S.parchment, padding: '4px', fontSize: 10 }}>Cancel</button>
                   </div>
-                  <div className="flex gap-1 mt-1">
-                    <button onClick={() => commitMove(m.id)} className="flex-1 text-xs py-1 bg-green-700 hover:bg-green-600 rounded text-white">
-                      ✓ Commit
-                    </button>
-                    <button onClick={() => cancelPendingMove(m.id)} className="flex-1 text-xs py-1 bg-red-700 hover:bg-red-600 rounded text-white">
-                      ✕ Cancel
-                    </button>
-                  </div>
-                  <p className="text-xs text-amber-400 mt-1">⚠️ Not committed yet</p>
                 </div>
               ))}
-              
-              {/* Committed moves */}
-              {clanCommittedMoves.map(m => {
-                const hoursSinceCommit = (Date.now() - m.committedAt) / (1000 * 60 * 60);
-                const canUncommit = hoursSinceCommit < 12;
+              {clanCommitted.map(m => {
+                const hrs = (Date.now() - m.committedAt) / 3600000;
                 return (
-                  <div key={m.id} className="bg-green-900/30 border border-green-700/50 rounded p-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-white">{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
-                      {canUncommit && (
-                        <button onClick={() => uncommitMove(m.id)} className="text-xs px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-slate-300">
-                          Undo
-                        </button>
-                      )}
+                  <div key={m.id} style={{ background: 'rgba(45,80,22,0.3)', border: '1px solid #2d5016', marginBottom: 8, padding: 8 }}>
+                    <div className="flex justify-between">
+                      <span style={{ color: S.parchment, fontSize: 12 }}>{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
+                      {hrs < 12 && <button onClick={() => uncommitMove(m.id)} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchmentDark, padding: '2px 8px', fontSize: 9 }}>Undo</button>}
                     </div>
-                    <p className="text-xs text-green-400 mt-1">
-                      ✓ Committed {canUncommit ? `(${Math.round(12 - hoursSinceCommit)}h to change)` : '(locked)'}
-                    </p>
+                    <p style={{ color: '#4a7c23', fontSize: 9, marginTop: 4 }}>Committed {hrs < 12 ? `(${Math.round(12 - hrs)}h left)` : '(locked)'}</p>
                   </div>
                 );
               })}
@@ -690,13 +488,13 @@ export default function SengokuMap() {
         )}
 
         {/* Legend */}
-        <div className="absolute bottom-4 left-4 bg-slate-800/90 backdrop-blur rounded-lg border border-slate-600 p-3 z-10">
-          <p className="text-slate-400 text-xs font-medium mb-2">CLANS</p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        <div className="absolute bottom-4 left-4 z-10" style={{ background: S.woodMid, border: `3px solid ${S.woodLight}`, padding: '12px 16px' }}>
+          <p style={{ color: S.parchmentDark, fontSize: 10, letterSpacing: 2, marginBottom: 8 }}>CLANS</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2">
             {Object.entries(CLANS).filter(([id]) => id !== 'uncontrolled').map(([id, c]) => (
               <div key={id} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full border border-white/20" style={{ backgroundColor: c.color }} />
-                <span className="text-xs text-slate-300">{c.name}</span>
+                <div style={{ width: 12, height: 12, background: c.color, border: '1px solid rgba(255,255,255,0.3)' }} />
+                <span style={{ color: S.parchment, fontSize: 11 }}>{c.name}</span>
               </div>
             ))}
           </div>
@@ -705,111 +503,63 @@ export default function SengokuMap() {
 
       {/* Side Panel */}
       {selected && provinces[selected] && (
-        <div className="w-80 bg-slate-800 border-l border-slate-700 flex flex-col shadow-xl">
-          <div className="p-4 border-b border-slate-700" style={{ background: `linear-gradient(135deg, ${getColor(selected)}50, transparent)` }}>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold text-white" style={{ fontFamily: 'serif' }}>{provinces[selected].name}</h2>
-              {PROVINCE_DATA[selected]?.special === 'capital' && <span className="text-xl">👑</span>}
-            </div>
-            <p className="text-slate-300 text-sm mt-1">
-              Controlled by: <span className="font-semibold" style={{ color: getColor(selected) }}>{CLANS[provinces[selected].owner]?.name || 'No one'}</span>
-            </p>
+        <div style={{ width: 320, background: `linear-gradient(180deg, ${S.woodDark} 0%, #1a0f0a 100%)`, borderLeft: `4px solid ${S.woodLight}`, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: 20, background: `linear-gradient(135deg, ${getColor(selected)}40, transparent)`, borderBottom: `3px solid ${S.woodLight}` }}>
+            <h2 style={{ color: S.parchment, fontSize: 24, fontWeight: '700' }}>{provinces[selected].name}</h2>
+            <p style={{ color: S.parchmentDark, fontSize: 12 }}>領主 <span style={{ color: getColor(selected), fontWeight: '600' }}>{CLANS[provinces[selected].owner]?.name || 'None'}</span></p>
           </div>
           
-          <div className="p-4 space-y-4 flex-1 overflow-y-auto">
-            {PROVINCE_DATA[selected]?.resource && (
-              <div className="flex items-center gap-3 p-3 bg-slate-700/50 rounded-lg">
-                <span className="text-2xl">{RESOURCES[PROVINCE_DATA[selected].resource]?.icon}</span>
-                <div>
-                  <p className="text-white font-medium">{RESOURCES[PROVINCE_DATA[selected].resource]?.name}</p>
-                  <p className="text-slate-400 text-xs">{RESOURCES[PROVINCE_DATA[selected].resource]?.desc}</p>
-                </div>
+          <div style={{ padding: 20, flex: 1, overflowY: 'auto' }}>
+            <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
+              <div className="flex justify-between items-center">
+                <div><p style={{ color: S.parchment, fontWeight: '600' }}>駐留軍</p><p style={{ color: S.parchmentDark, fontSize: 10 }}>Armies</p></div>
+                <span style={{ color: S.gold, fontSize: 28, fontWeight: '700' }}>{provinces[selected].armies}</span>
               </div>
-            )}
-            
-            <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
-              <div>
-                <p className="text-white font-medium">Armies Stationed</p>
-                <p className="text-slate-400 text-xs">Military strength</p>
-              </div>
-              <span className="text-white font-bold text-2xl">{provinces[selected].armies}</span>
             </div>
 
-            <div className="flex justify-between items-center p-3 bg-slate-700/50 rounded-lg">
-              <div>
-                <p className="text-white font-medium">Rally Capacity</p>
-                <p className="text-slate-400 text-xs">Max recruitable</p>
+            <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
+              <div className="flex justify-between items-center">
+                <div><p style={{ color: S.parchment, fontWeight: '600' }}>動員力</p><p style={{ color: S.parchmentDark, fontSize: 10 }}>Rally Cap</p></div>
+                <span style={{ color: S.parchment, fontSize: 24, fontWeight: '600' }}>{provinces[selected].rallyCapacity || 0}</span>
               </div>
-              <span className="text-white font-bold text-xl">{provinces[selected].rallyCapacity || 0}</span>
             </div>
 
             {provinces[selected].owner === clan && provinces[selected].armies > 0 && currentPhase.phase === 'PLANNING' && (
-              <button onClick={() => startArmyMove(selected)} className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 rounded-lg text-white font-medium transition">
-                🎌 Move Army
+              <button onClick={() => startArmyMove(selected)} style={{ width: '100%', padding: 12, background: 'linear-gradient(180deg, #3d6b1e 0%, #2d5016 100%)', border: `2px solid #4a7c23`, color: S.parchment, fontSize: 14, fontWeight: '600', marginBottom: 16 }}>
+                進軍 Move Army
               </button>
             )}
 
-            {currentPhase.phase === 'BATTLE' && (
-              <div className="p-3 bg-red-900/30 border border-red-700/50 rounded-lg">
-                <p className="text-red-400 text-sm font-medium">⚔️ Battle Phase</p>
-                <p className="text-red-300 text-xs">Army movements locked. Resolve battles in Roblox!</p>
-              </div>
-            )}
-
-            <div>
-              <p className="text-slate-400 text-sm mb-2">Neighboring Provinces:</p>
-              <div className="flex flex-wrap gap-1.5">
+            <div style={{ marginBottom: 16 }}>
+              <p style={{ color: S.parchmentDark, fontSize: 11, marginBottom: 8 }}>NEIGHBORS</p>
+              <div className="flex flex-wrap gap-2">
                 {PROVINCE_DATA[selected]?.neighbors?.map(n => (
-                  <button key={n} onClick={() => provinces[n] && setSelected(n)}
-                    className="text-xs px-2.5 py-1 rounded-full bg-slate-700 hover:bg-slate-600 text-slate-300 transition"
-                    style={{ borderLeft: `3px solid ${getColor(n)}` }}>
-                    {PROVINCE_DATA[n]?.name || n}
+                  <button key={n} onClick={() => setSelected(n)} style={{ padding: '4px 10px', background: S.woodDark, border: `1px solid ${S.woodLight}`, borderLeft: `3px solid ${getColor(n)}`, color: S.parchment, fontSize: 11 }}>
+                    {PROVINCE_DATA[n]?.name}
                   </button>
                 ))}
               </div>
             </div>
 
             {admin && (
-              <div className="pt-4 border-t border-slate-600 space-y-3">
-                <p className="text-red-400 text-xs font-medium">⚠️ ADMIN CONTROLS</p>
-                
-                <div>
-                  <label className="text-slate-400 text-xs">Change Owner:</label>
-                  <select value={provinces[selected].owner} onChange={e => changeOwner(selected, e.target.value)}
-                    className="w-full mt-1 p-2 bg-slate-700 text-white rounded border border-slate-600 text-sm">
-                    {Object.entries(CLANS).map(([id, c]) => (<option key={id} value={id}>{c.name}</option>))}
-                  </select>
+              <div style={{ borderTop: `2px solid ${S.woodLight}`, paddingTop: 16 }}>
+                <p style={{ color: S.red, fontSize: 10, marginBottom: 12 }}>ADMIN</p>
+                <select value={provinces[selected].owner} onChange={e => setProvinces({ ...provinces, [selected]: { ...provinces[selected], owner: e.target.value } })} style={{ width: '100%', padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12, marginBottom: 12 }}>
+                  {Object.entries(CLANS).map(([id, c]) => <option key={id} value={id} style={{ background: S.woodDark }}>{c.name}</option>)}
+                </select>
+                <div className="flex gap-2 mb-3">
+                  <button onClick={() => provinces[selected].armies > 0 && setProvinces({ ...provinces, [selected]: { ...provinces[selected], armies: provinces[selected].armies - 1 } })} style={{ flex: 1, padding: 8, background: S.red, border: 'none', color: S.parchment, fontSize: 11 }}>− Army</button>
+                  <button onClick={() => setProvinces({ ...provinces, [selected]: { ...provinces[selected], armies: provinces[selected].armies + 1 } })} style={{ flex: 1, padding: 8, background: '#2d5016', border: 'none', color: S.parchment, fontSize: 11 }}>+ Army</button>
                 </div>
-                
-                <div>
-                  <label className="text-slate-400 text-xs">Armies:</label>
-                  <div className="flex gap-2 mt-1">
-                    <button onClick={() => removeArmy(selected)} className="flex-1 py-1.5 bg-red-700 hover:bg-red-600 rounded text-white text-sm">- Remove</button>
-                    <button onClick={() => addArmy(selected)} className="flex-1 py-1.5 bg-green-700 hover:bg-green-600 rounded text-white text-sm">+ Add</button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-slate-400 text-xs">Rally Capacity:</label>
-                  <input
-                    type="number"
-                    value={provinces[selected].rallyCapacity || 0}
-                    onChange={e => setRallyCapacity(selected, e.target.value)}
-                    className="w-full mt-1 p-2 bg-slate-700 text-white rounded border border-slate-600 text-sm"
-                  />
-                </div>
-
-                <div className="pt-2 border-t border-slate-600">
-                  <label className="text-slate-400 text-xs">Game Controls:</label>
-                  <button onClick={advanceWeek} className="w-full mt-1 py-1.5 bg-amber-700 hover:bg-amber-600 rounded text-white text-sm">
-                    ⏭️ Advance Week ({week} → {week + 1})
-                  </button>
-                </div>
+                <input type="number" value={provinces[selected].rallyCapacity || 0} onChange={e => setProvinces({ ...provinces, [selected]: { ...provinces[selected], rallyCapacity: parseInt(e.target.value) || 0 } })} style={{ width: '100%', padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12, marginBottom: 12 }} placeholder="Rally Capacity" />
+                <button onClick={() => setWeek(w => w + 1)} style={{ width: '100%', padding: 10, background: `linear-gradient(180deg, ${S.gold} 0%, #8b6914 100%)`, border: 'none', color: S.woodDark, fontSize: 12, fontWeight: '600' }}>
+                  Week {week} → {week + 1}
+                </button>
               </div>
             )}
           </div>
 
-          <button onClick={() => setSelected(null)} className="m-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-sm transition">Close Panel</button>
+          <button onClick={() => setSelected(null)} style={{ margin: 16, padding: 12, background: S.woodMid, border: `2px solid ${S.woodLight}`, color: S.parchmentDark, fontSize: 12 }}>Close</button>
         </div>
       )}
     </div>
