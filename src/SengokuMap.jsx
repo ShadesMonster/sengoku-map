@@ -471,11 +471,17 @@ export default function SengokuMap() {
             const labelOffsets = {
               buzen: { x: 0, y: 8 },      // Move south
               chikuzen: { x: 0, y: -6 },  // Move north
-              mutsu: { x: 35, y: 0 },     // Move right to center
             };
             const offset = labelOffsets[provId] || { x: 0, y: 0 };
-            const cx = c.x + offset.x;
-            const cy = c.y + offset.y;
+            
+            // Absolute positions for specific provinces
+            const absolutePositions = {
+              mutsu: { x: 540.132 },
+            };
+            const absPos = absolutePositions[provId];
+            
+            const cx = absPos?.x ?? (c.x + offset.x);
+            const cy = absPos?.y ?? (c.y + offset.y);
             
             return (
               <g key={provId} style={{ pointerEvents: 'none' }}>
