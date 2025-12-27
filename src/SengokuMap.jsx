@@ -395,29 +395,29 @@ export default function SengokuMap() {
             
             {/* Land texture pattern */}
             <pattern id="landTexture" patternUnits="userSpaceOnUse" width="100" height="100">
-              <rect width="100" height="100" fill="#8b7355"/>
-              <circle cx="10" cy="10" r="1" fill="#7a6548" opacity="0.5"/>
-              <circle cx="30" cy="25" r="1.5" fill="#9c8462" opacity="0.4"/>
-              <circle cx="50" cy="5" r="1" fill="#7a6548" opacity="0.5"/>
-              <circle cx="70" cy="30" r="1" fill="#9c8462" opacity="0.4"/>
-              <circle cx="90" cy="15" r="1.5" fill="#7a6548" opacity="0.5"/>
-              <circle cx="15" cy="50" r="1" fill="#9c8462" opacity="0.4"/>
-              <circle cx="40" cy="60" r="1.5" fill="#7a6548" opacity="0.5"/>
-              <circle cx="60" cy="45" r="1" fill="#9c8462" opacity="0.4"/>
-              <circle cx="80" cy="55" r="1" fill="#7a6548" opacity="0.5"/>
-              <circle cx="5" cy="80" r="1.5" fill="#9c8462" opacity="0.4"/>
-              <circle cx="25" cy="90" r="1" fill="#7a6548" opacity="0.5"/>
-              <circle cx="55" cy="85" r="1" fill="#9c8462" opacity="0.4"/>
-              <circle cx="75" cy="75" r="1.5" fill="#7a6548" opacity="0.5"/>
-              <circle cx="95" cy="95" r="1" fill="#9c8462" opacity="0.4"/>
-              <path d="M0,20 Q25,15 50,20 T100,20" stroke="#7a6548" strokeWidth="0.5" fill="none" opacity="0.3"/>
-              <path d="M0,50 Q25,45 50,50 T100,50" stroke="#9c8462" strokeWidth="0.5" fill="none" opacity="0.2"/>
-              <path d="M0,80 Q25,75 50,80 T100,80" stroke="#7a6548" strokeWidth="0.5" fill="none" opacity="0.3"/>
+              <rect width="100" height="100" fill="#6b6b6b"/>
+              <circle cx="10" cy="10" r="1" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="30" cy="25" r="1.5" fill="#7a7a7a" opacity="0.4"/>
+              <circle cx="50" cy="5" r="1" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="70" cy="30" r="1" fill="#7a7a7a" opacity="0.4"/>
+              <circle cx="90" cy="15" r="1.5" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="15" cy="50" r="1" fill="#7a7a7a" opacity="0.4"/>
+              <circle cx="40" cy="60" r="1.5" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="60" cy="45" r="1" fill="#7a7a7a" opacity="0.4"/>
+              <circle cx="80" cy="55" r="1" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="5" cy="80" r="1.5" fill="#7a7a7a" opacity="0.4"/>
+              <circle cx="25" cy="90" r="1" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="55" cy="85" r="1" fill="#7a7a7a" opacity="0.4"/>
+              <circle cx="75" cy="75" r="1.5" fill="#5a5a5a" opacity="0.5"/>
+              <circle cx="95" cy="95" r="1" fill="#7a7a7a" opacity="0.4"/>
+              <path d="M0,20 Q25,15 50,20 T100,20" stroke="#5a5a5a" strokeWidth="0.5" fill="none" opacity="0.3"/>
+              <path d="M0,50 Q25,45 50,50 T100,50" stroke="#7a7a7a" strokeWidth="0.5" fill="none" opacity="0.2"/>
+              <path d="M0,80 Q25,75 50,80 T100,80" stroke="#5a5a5a" strokeWidth="0.5" fill="none" opacity="0.3"/>
             </pattern>
             
             <filter id="landNoise">
               <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="3" result="noise"/>
-              <feDiffuseLighting in="noise" lightingColor="#8b7355" surfaceScale="1.5" result="light">
+              <feDiffuseLighting in="noise" lightingColor="#6b6b6b" surfaceScale="1.5" result="light">
                 <feDistantLight azimuth="45" elevation="60"/>
               </feDiffuseLighting>
               <feBlend in="SourceGraphic" in2="light" mode="multiply"/>
@@ -450,7 +450,7 @@ export default function SengokuMap() {
             return (
               <path key={path.index} id={`province-path-${path.index}`} d={path.d}
                 fill={provId ? getColor(provId) : '#5c5347'}
-                fillOpacity={isSel || isArmy ? 0.95 : isHov ? 0.85 : 0.7}
+                fillOpacity={isSel || isArmy ? 1 : isHov ? 0.95 : 0.9}
                 stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : border || '#3d3529'}
                 strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : border ? 2 : 1}
                 filter={isSel || isArmy ? 'url(#glow)' : undefined}
