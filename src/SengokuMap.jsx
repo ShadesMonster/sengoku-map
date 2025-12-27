@@ -125,8 +125,8 @@ const getTimeUntilDeadline = () => {
 
 const getCurrentPhase = () => {
   const day = new Date().getDay();
-  if (day === 5 || day === 6 || day === 0) return { phase: 'BATTLE', label: '合戦', color: '#8B0000' };
-  return { phase: 'PLANNING', label: '軍議', color: '#2d5016' };
+  if (day === 5 || day === 6 || day === 0) return { phase: 'BATTLE', label: 'BATTLE', color: '#8B0000' };
+  return { phase: 'PLANNING', label: 'PLANNING', color: '#2d5016' };
 };
 
 // Style constants
@@ -364,7 +364,7 @@ export default function SengokuMap() {
             </select>
 
             <button onClick={() => setAdmin(!admin)} style={{ background: admin ? S.red : S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, padding: '6px 14px', fontSize: '11px' }}>
-              {admin ? '奉行 ON' : '奉行'}
+              {admin ? 'ADMIN ON' : 'ADMIN'}
             </button>
           </div>
         </div>
@@ -388,7 +388,7 @@ export default function SengokuMap() {
             <marker id="arrow-c" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#2d5016" /></marker>
           </defs>
 
-          <image href="/japan-map.jpg" x="-625" y="-150" width="1920" height="1080" opacity="0.5" />
+          <image href="/japan-map.jpg" x="-625" y="-150" width="1920" height="1080" style={{ filter: 'brightness(0.9)' }} />
 
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
