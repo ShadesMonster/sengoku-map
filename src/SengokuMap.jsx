@@ -450,7 +450,7 @@ export default function SengokuMap() {
             return (
               <path key={path.index} id={`province-path-${path.index}`} d={path.d}
                 fill={provId ? getColor(provId) : '#5c5347'}
-                fillOpacity={isSel || isArmy ? 1 : isHov ? 0.95 : 0.9}
+                fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
                 stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : border || '#3d3529'}
                 strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : border ? 2 : 1}
                 filter={isSel || isArmy ? 'url(#glow)' : undefined}
