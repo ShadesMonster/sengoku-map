@@ -466,13 +466,24 @@ export default function SengokuMap() {
             const prov = provinces[provId];
             if (!prov) return null;
             const owned = prov.owner !== 'uncontrolled';
+            
+            // Manual position offsets for specific provinces
+            const labelOffsets = {
+              buzen: { x: 0, y: 8 },      // Move south
+              chikuzen: { x: 0, y: -6 },  // Move north
+              mutsu: { x: 35, y: 0 },     // Move right to center
+            };
+            const offset = labelOffsets[provId] || { x: 0, y: 0 };
+            const cx = c.x + offset.x;
+            const cy = c.y + offset.y;
+            
             return (
               <g key={provId} style={{ pointerEvents: 'none' }}>
-                {isZoomedIn && <text x={c.x} y={c.y - (owned && prov.armies > 0 ? 6 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
+                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
                 {owned && prov.armies > 0 && (
                   <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }} style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
-                    <path d={`M${c.x - 6} ${c.y + (isZoomedIn ? 2 : -4)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[prov.owner]?.color} stroke={prov.owner === clan ? S.gold : '#000'} strokeWidth="1" filter="url(#shadow)" />
-                    <text x={c.x} y={c.y + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{prov.armies}</text>
+                    <path d={`M${cx - 6} ${cy + (isZoomedIn ? 2 : -4)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[prov.owner]?.color} stroke={prov.owner === clan ? S.gold : '#000'} strokeWidth="1" filter="url(#shadow)" />
+                    <text x={cx} y={cy + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{prov.armies}</text>
                   </g>
                 )}
               </g>
