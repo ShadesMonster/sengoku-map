@@ -323,7 +323,7 @@ export default function SengokuMap() {
   const clanCommitted = committedMoves.filter(m => m.clan === clan);
 
   return (
-    <div className="w-full h-screen flex" style={{ background: `linear-gradient(135deg, ${S.woodDark} 0%, #1a0f0a 100%)`, fontFamily: "'Cinzel', serif" }}>
+    <div className="w-full h-screen flex" style={{ background: '#1a1a1a', fontFamily: "'Cinzel', serif" }}>
       <div className="flex-1 relative overflow-hidden">
         
         {/* Header */}
