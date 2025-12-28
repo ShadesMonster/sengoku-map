@@ -493,112 +493,86 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 3: Unclaimed borders (solid line) - excluding hovered */}
+          {/* LAYER 3: Outer borders (dark outline for separation) */}
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            if (provId === hovered || provId === selected) return null;
+            return (
+              <path
+                key={`outer-border-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke="#1a1a1a"
+                strokeWidth="3"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+
+          {/* LAYER 4: Inner borders (clan color) - unclaimed first */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
             if (owner && owner !== 'uncontrolled') return null;
-            if (provId === hovered || provId === selected) return null; // Skip hovered/selected
+            if (provId === hovered || provId === selected) return null;
             return (
               <path
-                key={`unclaimed-border-${path.index}`}
+                key={`inner-border-unclaimed-${path.index}`}
                 d={path.d}
                 fill="none"
-                stroke="#4a4a4a"
-                strokeWidth="2"
+                stroke="#5a5a5a"
+                strokeWidth="1.5"
                 style={{ pointerEvents: 'none' }}
               />
             );
           })}
-
-          {/* LAYER 4: Claimed crosshatch 1 (forward order) - excluding hovered */}
+          
+          {/* LAYER 5: Inner borders (clan color) - claimed on top */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
             if (!owner || owner === 'uncontrolled') return null;
-            if (provId === hovered || provId === selected) return null; // Skip hovered/selected
+            if (provId === hovered || provId === selected) return null;
             const border = CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
-                key={`hatch1-${path.index}`}
+                key={`inner-border-claimed-${path.index}`}
                 d={path.d}
                 fill="none"
                 stroke={border}
-                strokeWidth="2"
-                strokeDasharray="6,4"
-                style={{ pointerEvents: 'none' }}
-              />
-            );
-          })}
-
-          {/* LAYER 5: Claimed crosshatch 2 (reverse order) - excluding hovered */}
-          {[...sortedPaths].reverse().map(path => {
-            const provId = PATH_TO_PROVINCE[path.index];
-            const owner = provId && provinces[provId]?.owner;
-            if (!owner || owner === 'uncontrolled') return null;
-            if (provId === hovered || provId === selected) return null; // Skip hovered/selected
-            const border = CLANS[owner]?.color;
-            if (!border) return null;
-            return (
-              <path
-                key={`hatch2-${path.index}`}
-                d={path.d}
-                fill="none"
-                stroke={border}
-                strokeWidth="2"
-                strokeDasharray="6,4"
-                strokeDashoffset="5"
+                strokeWidth="1.5"
                 style={{ pointerEvents: 'none' }}
               />
             );
           })}
 
           {/* LAYER 6: Hovered/Selected province border (on top) */}
-          {sortedPaths.map(path => {
+          {(hovered || selected) && sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             if (provId !== hovered && provId !== selected) return null;
             const owner = provId && provinces[provId]?.owner;
             const isUnclaimed = !owner || owner === 'uncontrolled';
-            const border = isUnclaimed ? '#6a6a6a' : CLANS[owner]?.color;
-            if (!border) return null;
+            const border = isUnclaimed ? '#8a8a8a' : CLANS[owner]?.color;
             
-            if (isUnclaimed) {
-              // Solid border for unclaimed
-              return (
+            return (
+              <g key={`hover-border-${path.index}`}>
                 <path
-                  key={`hover-unclaimed-${path.index}`}
+                  d={path.d}
+                  fill="none"
+                  stroke="#1a1a1a"
+                  strokeWidth="4"
+                  style={{ pointerEvents: 'none' }}
+                />
+                <path
                   d={path.d}
                   fill="none"
                   stroke={border}
                   strokeWidth="2"
                   style={{ pointerEvents: 'none' }}
                 />
-              );
-            } else {
-              // Crosshatch for claimed (both passes)
-              return (
-                <g key={`hover-claimed-${path.index}`}>
-                  <path
-                    d={path.d}
-                    fill="none"
-                    stroke={border}
-                    strokeWidth="2"
-                    strokeDasharray="6,4"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                  <path
-                    d={path.d}
-                    fill="none"
-                    stroke={border}
-                    strokeWidth="2"
-                    strokeDasharray="6,4"
-                    strokeDashoffset="5"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                </g>
-              );
-            }
+              </g>
+            );
           })}
 
           {/* LAYER 7: Interaction overlay (clickable) */}
