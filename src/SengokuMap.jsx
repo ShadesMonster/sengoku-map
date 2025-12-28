@@ -647,6 +647,17 @@ export default function SengokuMap() {
             );
           })}
 
+          {/* LAYER 10: Movement arrows */}
+          {clanPending.map(m => {
+            const f = provinceCenters[m.from], t = provinceCenters[m.to];
+            return f && t ? <line key={m.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={S.gold} strokeWidth="3" strokeDasharray="8,4" markerEnd="url(#arrow)" opacity="0.8" /> : null;
+          })}
+          {clanCommitted.map(m => {
+            const f = provinceCenters[m.from], t = provinceCenters[m.to];
+            return f && t ? <line key={m.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke="#2d5016" strokeWidth="3" markerEnd="url(#arrow-c)" opacity="0.9" /> : null;
+          })}
+
+          {/* LAYER 11: Province names and army banners (on top of everything) */}
           {Object.entries(provinceCenters).map(([provId, c]) => {
             const prov = provinces[provId];
             if (!prov) return null;
@@ -679,15 +690,6 @@ export default function SengokuMap() {
                 )}
               </g>
             );
-          })}
-
-          {clanPending.map(m => {
-            const f = provinceCenters[m.from], t = provinceCenters[m.to];
-            return f && t ? <line key={m.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke={S.gold} strokeWidth="3" strokeDasharray="8,4" markerEnd="url(#arrow)" opacity="0.8" /> : null;
-          })}
-          {clanCommitted.map(m => {
-            const f = provinceCenters[m.from], t = provinceCenters[m.to];
-            return f && t ? <line key={m.id} x1={f.x} y1={f.y} x2={t.x} y2={t.y} stroke="#2d5016" strokeWidth="3" markerEnd="url(#arrow-c)" opacity="0.9" /> : null;
           })}
         </svg>
 
