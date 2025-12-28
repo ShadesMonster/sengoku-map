@@ -493,7 +493,24 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 3: Unclaimed borders - single thin line */}
+          {/* LAYER 3: Outer borders (dark outline for separation) */}
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            if (provId === hovered || provId === selected) return null;
+            return (
+              <path
+                key={`outer-border-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke="#1a1a1a"
+                strokeWidth="3"
+                strokeLinejoin="round"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+
+          {/* LAYER 4: Inner borders (clan color) - unclaimed first */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
@@ -501,10 +518,10 @@ export default function SengokuMap() {
             if (provId === hovered || provId === selected) return null;
             return (
               <path
-                key={`border-unclaimed-${path.index}`}
+                key={`inner-border-unclaimed-${path.index}`}
                 d={path.d}
                 fill="none"
-                stroke="#3a3a3a"
+                stroke="#5a5a5a"
                 strokeWidth="1.5"
                 strokeLinejoin="round"
                 style={{ pointerEvents: 'none' }}
@@ -512,7 +529,7 @@ export default function SengokuMap() {
             );
           })}
           
-          {/* LAYER 4: Claimed borders - single thin line */}
+          {/* LAYER 5: Inner borders (clan color) - claimed on top */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
@@ -522,39 +539,48 @@ export default function SengokuMap() {
             if (!border) return null;
             return (
               <path
-                key={`border-claimed-${path.index}`}
+                key={`inner-border-claimed-${path.index}`}
                 d={path.d}
                 fill="none"
                 stroke={border}
-                strokeWidth="2"
+                strokeWidth="1.5"
                 strokeLinejoin="round"
                 style={{ pointerEvents: 'none' }}
               />
             );
           })}
 
-          {/* LAYER 5: Hovered/Selected province border (on top) */}
+          {/* LAYER 6: Hovered/Selected province border (on top) */}
           {(hovered || selected) && sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             if (provId !== hovered && provId !== selected) return null;
             const owner = provId && provinces[provId]?.owner;
             const isUnclaimed = !owner || owner === 'uncontrolled';
-            const border = isUnclaimed ? '#7a7a7a' : CLANS[owner]?.color;
+            const border = isUnclaimed ? '#8a8a8a' : CLANS[owner]?.color;
             
             return (
-              <path
-                key={`hover-border-${path.index}`}
-                d={path.d}
-                fill="none"
-                stroke={border}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                style={{ pointerEvents: 'none' }}
-              />
+              <g key={`hover-border-${path.index}`}>
+                <path
+                  d={path.d}
+                  fill="none"
+                  stroke="#1a1a1a"
+                  strokeWidth="4"
+                  strokeLinejoin="round"
+                  style={{ pointerEvents: 'none' }}
+                />
+                <path
+                  d={path.d}
+                  fill="none"
+                  stroke={border}
+                  strokeWidth="2"
+                  strokeLinejoin="round"
+                  style={{ pointerEvents: 'none' }}
+                />
+              </g>
             );
           })}
 
-          {/* LAYER 6: Interaction overlay (clickable) */}
+          {/* LAYER 7: Interaction overlay (clickable) */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const isSel = provId === selected;
