@@ -478,7 +478,9 @@ export default function SengokuMap() {
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
-            const border = owner && owner !== 'uncontrolled' ? CLANS[owner]?.color : null;
+            // Only owned provinces get borders - unclaimed get nothing
+            if (!owner || owner === 'uncontrolled') return null;
+            const border = CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
@@ -488,6 +490,7 @@ export default function SengokuMap() {
                 stroke={border}
                 strokeWidth="3"
                 strokeDasharray="6,6"
+                strokeOpacity="1"
                 style={{ pointerEvents: 'none' }}
               />
             );
@@ -497,7 +500,9 @@ export default function SengokuMap() {
           {[...sortedPaths].reverse().map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
-            const border = owner && owner !== 'uncontrolled' ? CLANS[owner]?.color : null;
+            // Only owned provinces get borders - unclaimed get nothing
+            if (!owner || owner === 'uncontrolled') return null;
+            const border = CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
@@ -508,6 +513,7 @@ export default function SengokuMap() {
                 strokeWidth="3"
                 strokeDasharray="6,6"
                 strokeDashoffset="6"
+                strokeOpacity="1"
                 style={{ pointerEvents: 'none' }}
               />
             );
