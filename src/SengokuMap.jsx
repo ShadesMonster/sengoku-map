@@ -526,7 +526,7 @@ export default function SengokuMap() {
                 d={path.d}
                 fill="none"
                 stroke="#5a5a5a"
-                strokeWidth="1.5"
+                strokeWidth="2"
                 strokeLinejoin="round"
                 style={{ pointerEvents: 'none' }}
               />
@@ -587,7 +587,7 @@ export default function SengokuMap() {
                 d={path.d}
                 fill="none"
                 stroke={border}
-                strokeWidth="1.5"
+                strokeWidth="2"
                 strokeLinejoin="round"
                 style={{ pointerEvents: 'none' }}
               />
