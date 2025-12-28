@@ -195,6 +195,7 @@ export default function SengokuMap() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeBattles, setActiveBattles] = useState([]);
   const [lastProcessedPhase, setLastProcessedPhase] = useState(null);
+  const [moveLog, setMoveLog] = useState([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -214,57 +215,115 @@ export default function SengokuMap() {
 
   const processMovesIntoBattles = () => {
     const battles = [];
+    const log = [];
     const movesToProcess = [...committedMoves];
     const newProvinces = { ...provinces };
     
-    // Group moves by destination to detect collisions
-    const movesByDest = {};
+    // Log all moves first
     movesToProcess.forEach(m => {
-      if (!movesByDest[m.to]) movesByDest[m.to] = [];
-      movesByDest[m.to].push(m);
+      log.push({
+        type: 'move',
+        clan: m.clan,
+        from: m.from,
+        to: m.to,
+        text: `${CLANS[m.clan]?.name} moves army from ${PROVINCE_DATA[m.from]?.name} to ${PROVINCE_DATA[m.to]?.name}`
+      });
     });
     
-    // Check for head-on collisions (A→B and B→A)
+    // STEP 1: Identify all collisions (A→B and B→A)
     const collisions = [];
+    const collisionMoveIds = new Set();
     movesToProcess.forEach(m => {
-      const opposing = movesToProcess.find(om => om.from === m.to && om.to === m.from && om.clan !== m.clan);
-      if (opposing && !collisions.find(c => (c.move1.id === m.id || c.move1.id === opposing.id))) {
+      if (collisionMoveIds.has(m.id)) return;
+      const opposing = movesToProcess.find(om => 
+        om.from === m.to && om.to === m.from && om.clan !== m.clan && !collisionMoveIds.has(om.id)
+      );
+      if (opposing) {
         collisions.push({ move1: m, move2: opposing });
+        collisionMoveIds.add(m.id);
+        collisionMoveIds.add(opposing.id);
       }
     });
     
-    // Create battles for collisions (Sanryō - meeting engagement)
+    // STEP 2: Process collisions - create Sanryō battles, armies leave their provinces
     collisions.forEach(({ move1, move2 }) => {
+      const army1 = newProvinces[move1.from]?.armies || 1;
+      const army2 = newProvinces[move2.from]?.armies || 1;
+      
+      // Pick a province for the battle (use the one with higher strategic value or just first)
+      const battleProvince = move1.to;
+      
       battles.push({
         id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         type: 'collision',
         battleType: 'sanryo',
-        province: move1.to, // or move2.to - they're swapped
+        province: battleProvince,
         attacker: move1.clan,
         defender: move2.clan,
         attackerFrom: move1.from,
         defenderFrom: move2.from,
-        attackerArmies: newProvinces[move1.from]?.armies || 1,
-        defenderArmies: newProvinces[move2.from]?.armies || 1,
+        attackerArmies: army1,
+        defenderArmies: army2,
       });
-      // Remove armies from source provinces
-      if (newProvinces[move1.from]) newProvinces[move1.from] = { ...newProvinces[move1.from], armies: 0 };
-      if (newProvinces[move2.from]) newProvinces[move2.from] = { ...newProvinces[move2.from], armies: 0 };
+      
+      // Remove armies from source provinces (they're now in the field)
+      newProvinces[move1.from] = { ...newProvinces[move1.from], armies: 0 };
+      newProvinces[move2.from] = { ...newProvinces[move2.from], armies: 0 };
+      
+      log.push({
+        type: 'collision',
+        text: `⚔️ ${CLANS[move1.clan]?.name} and ${CLANS[move2.clan]?.name} armies collide! Sanryō battle at ${PROVINCE_DATA[battleProvince]?.name}`
+      });
     });
     
-    // Process remaining moves (attacks on territories)
-    const processedMoveIds = collisions.flatMap(c => [c.move1.id, c.move2.id]);
-    movesToProcess.filter(m => !processedMoveIds.includes(m.id)).forEach(m => {
-      const targetProv = newProvinces[m.to];
+    // STEP 3: Process remaining moves (non-collision)
+    const remainingMoves = movesToProcess.filter(m => !collisionMoveIds.has(m.id));
+    
+    // Sort by: reinforcements first, then attacks on empty, then attacks on defended
+    remainingMoves.forEach(m => {
       const sourceProv = newProvinces[m.from];
+      const targetProv = newProvinces[m.to];
+      const armyCount = sourceProv?.armies || 0;
       
-      if (targetProv && sourceProv) {
-        if (targetProv.owner === 'uncontrolled') {
-          // Uncontested claim - just take it
-          newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: sourceProv.armies };
+      if (armyCount === 0) {
+        // Army already moved (maybe was part of collision detection issue) - skip
+        log.push({
+          type: 'skip',
+          text: `${CLANS[m.clan]?.name} order cancelled - no army at ${PROVINCE_DATA[m.from]?.name}`
+        });
+        return;
+      }
+      
+      if (targetProv.owner === m.clan) {
+        // REINFORCEMENT - move to own territory
+        newProvinces[m.to] = { ...targetProv, armies: targetProv.armies + armyCount };
+        newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        log.push({
+          type: 'reinforce',
+          text: `${CLANS[m.clan]?.name} reinforces ${PROVINCE_DATA[m.to]?.name} (+${armyCount} armies)`
+        });
+      } else if (targetProv.owner === 'uncontrolled') {
+        // CLAIM UNCONTROLLED - auto success
+        newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: armyCount };
+        newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        log.push({
+          type: 'claim',
+          text: `✓ ${CLANS[m.clan]?.name} claims uncontrolled ${PROVINCE_DATA[m.to]?.name}`
+        });
+      } else {
+        // ATTACK ENEMY TERRITORY
+        const defenderArmies = targetProv.armies;
+        
+        if (defenderArmies === 0) {
+          // AUTO-WIN - no defenders
+          newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: armyCount };
           newProvinces[m.from] = { ...sourceProv, armies: 0 };
-        } else if (targetProv.owner !== m.clan) {
-          // Attack on enemy territory
+          log.push({
+            type: 'auto-win',
+            text: `✓ ${CLANS[m.clan]?.name} takes undefended ${PROVINCE_DATA[m.to]?.name} from ${CLANS[targetProv.owner]?.name}`
+          });
+        } else {
+          // BATTLE - create battle
           const battleType = PROVINCE_DATA[m.to]?.battleType || 'field';
           battles.push({
             id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -274,21 +333,25 @@ export default function SengokuMap() {
             attacker: m.clan,
             defender: targetProv.owner,
             attackerFrom: m.from,
-            attackerArmies: sourceProv.armies,
-            defenderArmies: targetProv.armies,
+            attackerArmies: armyCount,
+            defenderArmies: defenderArmies,
           });
-          // Move attacker armies (they're now "in battle" at the province)
+          
+          // Attacker's army leaves source
           newProvinces[m.from] = { ...sourceProv, armies: 0 };
-        } else {
-          // Reinforcement to own territory
-          newProvinces[m.to] = { ...targetProv, armies: targetProv.armies + sourceProv.armies };
-          newProvinces[m.from] = { ...sourceProv, armies: 0 };
+          // Defender's army stays but will be resolved in battle
+          
+          log.push({
+            type: 'battle',
+            text: `⚔️ ${CLANS[m.clan]?.name} attacks ${CLANS[targetProv.owner]?.name} at ${PROVINCE_DATA[m.to]?.name} - ${BATTLE_TYPES[battleType]?.name}!`
+          });
         }
       }
     });
     
     setProvinces(newProvinces);
     setActiveBattles(battles);
+    setMoveLog(log);
     setCommittedMoves([]);
     setPendingMoves([]);
   };
@@ -344,49 +407,108 @@ export default function SengokuMap() {
         if (s.pendingMoves) setPendingMoves(s.pendingMoves);
         if (s.activeBattles) setActiveBattles(s.activeBattles);
         if (s.lastProcessedPhase) setLastProcessedPhase(s.lastProcessedPhase);
+        if (s.moveLog) setMoveLog(s.moveLog);
       } catch (e) {}
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, week, committedMoves, pendingMoves, activeBattles, lastProcessedPhase }));
-  }, [provinces, week, committedMoves, pendingMoves, activeBattles, lastProcessedPhase]);
+    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, week, committedMoves, pendingMoves, activeBattles, lastProcessedPhase, moveLog }));
+  }, [provinces, week, committedMoves, pendingMoves, activeBattles, lastProcessedPhase, moveLog]);
 
   const resolveBattle = (battleId, winner) => {
     const battle = activeBattles.find(b => b.id === battleId);
     if (!battle) return;
     
     const newProvinces = { ...provinces };
-    const winnerClan = winner;
-    const loserClan = winner === battle.attacker ? battle.defender : battle.attacker;
+    const loser = winner === battle.attacker ? battle.defender : battle.attacker;
+    const winnerArmies = winner === battle.attacker ? battle.attackerArmies : battle.defenderArmies;
+    
+    const newLog = [...moveLog];
     
     if (battle.type === 'collision') {
-      // Collision battle - winner takes both armies' origin provinces stay as is, winner gains the contested middle ground
-      // Actually for collision, let's say winner's army returns home with reduced forces
-      const winnerFrom = winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom;
-      if (newProvinces[winnerFrom]) {
-        newProvinces[winnerFrom] = { ...newProvinces[winnerFrom], armies: 1 }; // Surviving army
+      // Collision battle - winner continues to their original destination
+      const winnerOriginalDest = winner === battle.attacker ? battle.province : battle.attackerFrom;
+      const targetProv = newProvinces[winnerOriginalDest];
+      
+      newLog.push({
+        type: 'result',
+        text: `🏆 ${CLANS[winner]?.name} wins collision! ${CLANS[loser]?.name} army destroyed.`
+      });
+      
+      if (targetProv.owner === winner) {
+        // Reinforce own territory
+        newProvinces[winnerOriginalDest] = { ...targetProv, armies: targetProv.armies + winnerArmies };
+        newLog.push({
+          type: 'reinforce',
+          text: `${CLANS[winner]?.name} reinforces ${PROVINCE_DATA[winnerOriginalDest]?.name}`
+        });
+      } else if (targetProv.owner === 'uncontrolled' || targetProv.armies === 0) {
+        // Take undefended territory
+        const prevOwner = targetProv.owner;
+        newProvinces[winnerOriginalDest] = { ...targetProv, owner: winner, armies: winnerArmies };
+        if (prevOwner !== 'uncontrolled') {
+          newLog.push({
+            type: 'auto-win',
+            text: `✓ ${CLANS[winner]?.name} takes undefended ${PROVINCE_DATA[winnerOriginalDest]?.name} from ${CLANS[prevOwner]?.name}`
+          });
+        } else {
+          newLog.push({
+            type: 'claim',
+            text: `✓ ${CLANS[winner]?.name} claims ${PROVINCE_DATA[winnerOriginalDest]?.name}`
+          });
+        }
+      } else {
+        // Must fight again! Create new battle
+        const newBattleType = PROVINCE_DATA[winnerOriginalDest]?.battleType || 'field';
+        const newBattle = {
+          id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'attack',
+          battleType: newBattleType,
+          province: winnerOriginalDest,
+          attacker: winner,
+          defender: targetProv.owner,
+          attackerFrom: winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom,
+          attackerArmies: winnerArmies,
+          defenderArmies: targetProv.armies,
+        };
+        setActiveBattles([...activeBattles.filter(b => b.id !== battleId), newBattle]);
+        newLog.push({
+          type: 'battle',
+          text: `⚔️ ${CLANS[winner]?.name} continues to ${PROVINCE_DATA[winnerOriginalDest]?.name} - faces ${CLANS[targetProv.owner]?.name}!`
+        });
+        setMoveLog(newLog);
+        return; // Don't remove battle yet, replaced with new one
       }
     } else {
-      // Attack battle - winner takes the province
+      // Regular attack battle
       if (winner === battle.attacker) {
         // Attacker wins - takes the province
         newProvinces[battle.province] = { 
           ...newProvinces[battle.province], 
           owner: battle.attacker, 
-          armies: 1 // Surviving attacking army
+          armies: winnerArmies
         };
+        newLog.push({
+          type: 'result',
+          text: `🏆 ${CLANS[winner]?.name} conquers ${PROVINCE_DATA[battle.province]?.name}! ${CLANS[loser]?.name} army destroyed.`
+        });
       } else {
-        // Defender wins - keeps province, attacker loses army
+        // Defender wins - keeps province, attacker army destroyed
         newProvinces[battle.province] = { 
           ...newProvinces[battle.province], 
-          armies: Math.max(1, battle.defenderArmies) // Defender keeps some army
+          armies: winnerArmies
         };
+        newLog.push({
+          type: 'result',
+          text: `🛡️ ${CLANS[winner]?.name} defends ${PROVINCE_DATA[battle.province]?.name}! ${CLANS[loser]?.name} army destroyed.`
+        });
       }
     }
     
     setProvinces(newProvinces);
     setActiveBattles(activeBattles.filter(b => b.id !== battleId));
+    setMoveLog(newLog);
   };
 
   const handleWheel = (e) => {
@@ -952,6 +1074,36 @@ export default function SengokuMap() {
                       {CLANS[battle.defender]?.name} Wins
                     </button>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Move Log Panel */}
+        {moveLog.length > 0 && (
+          <div className="absolute top-20 left-4 z-20" style={{ width: 320, background: S.woodMid, border: `3px solid ${S.woodLight}` }}>
+            <div style={{ padding: '12px 16px', borderBottom: `2px solid ${S.woodLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ color: S.parchment, fontSize: '14px', fontWeight: '600' }}>📜 Moves This Turn</h3>
+              <button onClick={() => setMoveLog([])} style={{ background: 'transparent', border: 'none', color: S.parchmentDark, fontSize: 10, cursor: 'pointer' }}>Clear</button>
+            </div>
+            <div style={{ padding: 8, maxHeight: 300, overflowY: 'auto' }}>
+              {moveLog.map((entry, i) => (
+                <div key={i} style={{ 
+                  padding: '6px 8px', 
+                  marginBottom: 4, 
+                  fontSize: 11,
+                  background: entry.type === 'battle' || entry.type === 'collision' ? 'rgba(139,0,0,0.2)' : 
+                              entry.type === 'auto-win' || entry.type === 'claim' ? 'rgba(45,80,22,0.2)' : 
+                              entry.type === 'reinforce' ? 'rgba(184,134,11,0.2)' : 'rgba(0,0,0,0.2)',
+                  borderLeft: `3px solid ${
+                    entry.type === 'battle' || entry.type === 'collision' ? S.red : 
+                    entry.type === 'auto-win' || entry.type === 'claim' ? '#2d5016' : 
+                    entry.type === 'reinforce' ? S.gold : S.parchmentDark
+                  }`,
+                  color: S.parchment
+                }}>
+                  {entry.text}
                 </div>
               ))}
             </div>
