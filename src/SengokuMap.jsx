@@ -197,6 +197,7 @@ export default function SengokuMap() {
   const [pendingAttacks, setPendingAttacks] = useState([]);
   const [lastProcessedPhase, setLastProcessedPhase] = useState(null);
   const [moveLog, setMoveLog] = useState([]);
+  const [armySplitCount, setArmySplitCount] = useState(1);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -216,27 +217,43 @@ export default function SengokuMap() {
 
   const processMovesIntoBattles = () => {
     const battles = [];
-    const pendingAttacks = []; // Attacks waiting for collision to resolve
+    const pendingAttacksNew = [];
     const log = [];
-    const movesToProcess = [...committedMoves];
+    let movesToProcess = [...committedMoves];
     const newProvinces = { ...provinces };
     
-    // Log all moves first
+    // STEP 0: Merge moves from same clan going to same destination from same origin
+    const mergedMoves = [];
+    const movesByRoute = new Map();
+    
+    movesToProcess.forEach(m => {
+      const key = `${m.clan}-${m.from}-${m.to}`;
+      if (movesByRoute.has(key)) {
+        const existing = movesByRoute.get(key);
+        existing.armies = (existing.armies || 1) + (m.armies || 1);
+      } else {
+        const merged = { ...m, armies: m.armies || 1 };
+        movesByRoute.set(key, merged);
+        mergedMoves.push(merged);
+      }
+    });
+    movesToProcess = mergedMoves;
+    
+    // Log all moves
     movesToProcess.forEach(m => {
       log.push({
         type: 'move',
         clan: m.clan,
         from: m.from,
         to: m.to,
-        text: `${CLANS[m.clan]?.name} moves army from ${PROVINCE_DATA[m.from]?.name} to ${PROVINCE_DATA[m.to]?.name}`
+        text: `${CLANS[m.clan]?.name} moves ${m.armies} ${m.armies > 1 ? 'armies' : 'army'} from ${PROVINCE_DATA[m.from]?.name} to ${PROVINCE_DATA[m.to]?.name}`
       });
     });
     
     // STEP 1: Identify all collisions (A→B and B→A)
     const collisions = [];
     const collisionMoveIds = new Set();
-    const collisionClans = new Set(); // Track clans involved in collisions
-    const collisionDestinations = new Map(); // Map destination -> collision info
+    const collisionClans = new Set();
     
     movesToProcess.forEach(m => {
       if (collisionMoveIds.has(m.id)) return;
@@ -249,21 +266,16 @@ export default function SengokuMap() {
         collisionMoveIds.add(opposing.id);
         collisionClans.add(m.clan);
         collisionClans.add(opposing.clan);
-        // Both destinations are involved in this collision
-        collisionDestinations.set(m.to, { collision: { move1: m, move2: opposing }, returningClan: opposing.clan });
-        collisionDestinations.set(opposing.to, { collision: { move1: m, move2: opposing }, returningClan: m.clan });
       }
     });
     
-    // STEP 2: Process collisions - create Sanryō battles
+    // STEP 2: Process collisions
     collisions.forEach(({ move1, move2 }) => {
-      const army1 = newProvinces[move1.from]?.armies || 1;
-      const army2 = newProvinces[move2.from]?.armies || 1;
+      const army1 = move1.armies || 1;
+      const army2 = move2.armies || 1;
       
-      // Battle happens "in the field" between the two provinces
-      const battleProvince = move1.to; // Use move1's destination as battle location
+      const battleProvince = move1.to;
       
-      // Find any pending attacks on either origin province
       const attacksOnMove1Origin = movesToProcess.filter(m => 
         !collisionMoveIds.has(m.id) && m.to === move1.from && m.clan !== move1.clan
       );
@@ -284,7 +296,6 @@ export default function SengokuMap() {
         defenderDest: move2.to,
         attackerArmies: army1,
         defenderArmies: army2,
-        // Chain info - what happens after this battle
         chainInfo: {
           attackerWinsNext: attacksOnMove2Origin.length > 0 ? 
             `Then fights ${CLANS[attacksOnMove2Origin[0]?.clan]?.name} at ${PROVINCE_DATA[move2.from]?.name}` : 
@@ -297,28 +308,28 @@ export default function SengokuMap() {
       
       battles.push(battle);
       
-      // Remove armies from source provinces (they're now in the field)
-      newProvinces[move1.from] = { ...newProvinces[move1.from], armies: 0 };
-      newProvinces[move2.from] = { ...newProvinces[move2.from], armies: 0 };
+      // Deduct armies (not set to 0, in case there are leftovers from split)
+      newProvinces[move1.from] = { ...newProvinces[move1.from], armies: newProvinces[move1.from].armies - army1 };
+      newProvinces[move2.from] = { ...newProvinces[move2.from], armies: newProvinces[move2.from].armies - army2 };
       
       log.push({
         type: 'collision',
-        text: `⚔️ ${CLANS[move1.clan]?.name} and ${CLANS[move2.clan]?.name} armies collide! Sanryō battle`
+        text: `⚔️ ${CLANS[move1.clan]?.name} (${army1}) and ${CLANS[move2.clan]?.name} (${army2}) armies collide! Sanryō battle`
       });
     });
     
-    // STEP 3: Process remaining moves (non-collision)
+    // STEP 3: Process remaining moves
     const remainingMoves = movesToProcess.filter(m => !collisionMoveIds.has(m.id));
     
     remainingMoves.forEach(m => {
+      const armyCount = m.armies || 1;
       const sourceProv = newProvinces[m.from];
       const targetProv = newProvinces[m.to];
-      const armyCount = sourceProv?.armies || 0;
       
-      if (armyCount === 0) {
+      if (sourceProv.armies < armyCount) {
         log.push({
           type: 'skip',
-          text: `${CLANS[m.clan]?.name} order cancelled - no army at ${PROVINCE_DATA[m.from]?.name}`
+          text: `${CLANS[m.clan]?.name} order cancelled - not enough armies at ${PROVINCE_DATA[m.from]?.name}`
         });
         return;
       }
@@ -326,21 +337,21 @@ export default function SengokuMap() {
       if (targetProv.owner === m.clan) {
         // REINFORCEMENT
         newProvinces[m.to] = { ...targetProv, armies: targetProv.armies + armyCount };
-        newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
         log.push({
           type: 'reinforce',
-          text: `${CLANS[m.clan]?.name} reinforces ${PROVINCE_DATA[m.to]?.name} (+${armyCount} armies)`
+          text: `${CLANS[m.clan]?.name} reinforces ${PROVINCE_DATA[m.to]?.name} (+${armyCount})`
         });
       } else if (targetProv.owner === 'uncontrolled') {
-        // CLAIM UNCONTROLLED
+        // CLAIM
         newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: armyCount };
-        newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
         log.push({
           type: 'claim',
-          text: `✓ ${CLANS[m.clan]?.name} claims uncontrolled ${PROVINCE_DATA[m.to]?.name}`
+          text: `✓ ${CLANS[m.clan]?.name} claims ${PROVINCE_DATA[m.to]?.name}`
         });
       } else {
-        // ATTACK ENEMY TERRITORY
+        // ATTACK
         const defenderInCollision = collisionClans.has(targetProv.owner) && 
           collisions.some(c => 
             (c.move1.clan === targetProv.owner && c.move1.from === m.to) ||
@@ -348,32 +359,28 @@ export default function SengokuMap() {
           );
         
         if (defenderInCollision) {
-          // Defender left for collision - this is a PENDING attack
-          // Army moves there and waits
-          pendingAttacks.push({
+          pendingAttacksNew.push({
             id: `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             clan: m.clan,
             from: m.from,
             to: m.to,
             armies: armyCount,
-            waitingFor: targetProv.owner, // Waiting to see if this clan returns
+            waitingFor: targetProv.owner,
           });
           
-          // Move army to destination (they're waiting there)
-          newProvinces[m.from] = { ...sourceProv, armies: 0 };
-          // Don't change ownership yet - waiting for collision result
+          newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
           
           log.push({
             type: 'pending',
-            text: `⏳ ${CLANS[m.clan]?.name} arrives at ${PROVINCE_DATA[m.to]?.name} - waiting for ${CLANS[targetProv.owner]?.name} to return from battle`
+            text: `⏳ ${CLANS[m.clan]?.name} (${armyCount}) at ${PROVINCE_DATA[m.to]?.name} - waiting for ${CLANS[targetProv.owner]?.name}`
           });
         } else if (targetProv.armies === 0) {
-          // AUTO-WIN - no defenders
+          // AUTO-WIN
           newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: armyCount };
-          newProvinces[m.from] = { ...sourceProv, armies: 0 };
+          newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
           log.push({
             type: 'auto-win',
-            text: `✓ ${CLANS[m.clan]?.name} takes undefended ${PROVINCE_DATA[m.to]?.name} from ${CLANS[targetProv.owner]?.name}`
+            text: `✓ ${CLANS[m.clan]?.name} takes undefended ${PROVINCE_DATA[m.to]?.name}`
           });
         } else {
           // BATTLE
@@ -390,11 +397,11 @@ export default function SengokuMap() {
             defenderArmies: targetProv.armies,
           });
           
-          newProvinces[m.from] = { ...sourceProv, armies: 0 };
+          newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
           
           log.push({
             type: 'battle',
-            text: `⚔️ ${CLANS[m.clan]?.name} attacks ${CLANS[targetProv.owner]?.name} at ${PROVINCE_DATA[m.to]?.name} - ${BATTLE_TYPES[battleType]?.name}!`
+            text: `⚔️ ${CLANS[m.clan]?.name} (${armyCount}) attacks ${CLANS[targetProv.owner]?.name} (${targetProv.armies}) at ${PROVINCE_DATA[m.to]?.name}`
           });
         }
       }
@@ -402,7 +409,7 @@ export default function SengokuMap() {
     
     setProvinces(newProvinces);
     setActiveBattles(battles);
-    setPendingAttacks(pendingAttacks);
+    setPendingAttacks(pendingAttacksNew);
     setMoveLog(log);
     setCommittedMoves([]);
     setPendingMoves([]);
@@ -659,27 +666,55 @@ export default function SengokuMap() {
 
   const getColor = (provId) => CLANS[provinces[provId]?.owner]?.color || '#5c5347';
 
+  // Calculate available armies at a province (total minus already committed/pending)
+  const getAvailableArmies = (provId) => {
+    const total = provinces[provId]?.armies || 0;
+    const pendingFrom = pendingMoves.filter(m => m.from === provId && m.clan === clan).reduce((sum, m) => sum + (m.armies || 1), 0);
+    const committedFrom = committedMoves.filter(m => m.from === provId && m.clan === clan).reduce((sum, m) => sum + (m.armies || 1), 0);
+    return total - pendingFrom - committedFrom;
+  };
+
   const handleProvinceClick = (idx) => {
     if (isPanning) return;
     const provId = PATH_TO_PROVINCE[idx];
     if (!provId) return;
+    
     if (selectedArmy && provinces[selectedArmy].neighbors.includes(provId)) {
-      const existing = pendingMoves.find(m => m.from === selectedArmy && m.clan === clan);
-      if (existing) {
-        setPendingMoves(pendingMoves.map(m => m.id === existing.id ? { ...m, to: provId } : m));
-      } else {
-        setPendingMoves([...pendingMoves, { id: Date.now(), from: selectedArmy, to: provId, clan }]);
+      const availableArmies = getAvailableArmies(selectedArmy);
+      
+      if (availableArmies <= 0) {
+        // No armies available to move
+        setSelectedArmy(null);
+        setArmySplitCount(1);
+        return;
       }
+      
+      // Create move with the selected army count
+      const armiesToMove = Math.min(armySplitCount, availableArmies);
+      setPendingMoves([...pendingMoves, { 
+        id: Date.now(), 
+        from: selectedArmy, 
+        to: provId, 
+        clan,
+        armies: armiesToMove
+      }]);
+      
       setSelectedArmy(null);
+      setArmySplitCount(1);
       return;
     }
     setSelected(provId);
     setSelectedArmy(null);
+    setArmySplitCount(1);
   };
 
   const startArmyMove = (provId) => {
     if (currentPhase.phase === 'BATTLE') return;
-    if (provinces[provId].owner === clan && provinces[provId].armies > 0) setSelectedArmy(provId);
+    const available = getAvailableArmies(provId);
+    if (provinces[provId].owner === clan && available > 0) {
+      setSelectedArmy(provId);
+      setArmySplitCount(available); // Default to all available
+    }
   };
 
   const commitMove = (id) => {
@@ -1113,10 +1148,30 @@ export default function SengokuMap() {
 
         {/* Army Move UI */}
         {selectedArmy && (
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20" style={{ background: S.woodMid, border: `3px solid ${S.woodLight}`, padding: '16px 24px' }}>
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20" style={{ background: S.woodMid, border: `3px solid ${S.woodLight}`, padding: '16px 24px', minWidth: 200 }}>
             <p style={{ color: S.parchment }}>進軍元 <span style={{ color: S.gold, fontWeight: '600' }}>{provinces[selectedArmy]?.name}</span></p>
+            
+            {/* Army split controls */}
+            {getAvailableArmies(selectedArmy) > 1 && (
+              <div style={{ margin: '12px 0', padding: '8px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${S.woodLight}` }}>
+                <p style={{ color: S.parchmentDark, fontSize: '10px', marginBottom: 6 }}>ARMIES TO SEND</p>
+                <div className="flex items-center justify-center gap-3">
+                  <button 
+                    onClick={() => setArmySplitCount(Math.max(1, armySplitCount - 1))}
+                    style={{ width: 28, height: 28, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}
+                  >−</button>
+                  <span style={{ color: S.gold, fontSize: 20, fontWeight: '700', minWidth: 30, textAlign: 'center' }}>{armySplitCount}</span>
+                  <button 
+                    onClick={() => setArmySplitCount(Math.min(getAvailableArmies(selectedArmy), armySplitCount + 1))}
+                    style={{ width: 28, height: 28, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}
+                  >+</button>
+                </div>
+                <p style={{ color: S.parchmentDark, fontSize: '9px', marginTop: 4, textAlign: 'center' }}>of {getAvailableArmies(selectedArmy)} available</p>
+              </div>
+            )}
+            
             <p style={{ color: '#4a7c23', fontSize: '12px', margin: '8px 0' }}>Select destination</p>
-            <button onClick={() => setSelectedArmy(null)} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, padding: '8px 16px', fontSize: '12px' }}>Cancel</button>
+            <button onClick={() => { setSelectedArmy(null); setArmySplitCount(1); }} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, padding: '8px 16px', fontSize: '12px', width: '100%' }}>Cancel</button>
           </div>
         )}
 
@@ -1129,7 +1184,10 @@ export default function SengokuMap() {
             <div style={{ padding: 8, maxHeight: 200, overflowY: 'auto' }}>
               {clanPending.map(m => (
                 <div key={m.id} style={{ background: 'rgba(184,134,11,0.2)', border: `1px solid ${S.gold}`, marginBottom: 8, padding: 8 }}>
-                  <div style={{ color: S.parchment, fontSize: 12 }}>{provinces[m.from]?.name} → {provinces[m.to]?.name}</div>
+                  <div style={{ color: S.parchment, fontSize: 12 }}>
+                    {provinces[m.from]?.name} → {provinces[m.to]?.name}
+                    {m.armies > 1 && <span style={{ color: S.gold, marginLeft: 6 }}>×{m.armies}</span>}
+                  </div>
                   <div className="flex gap-2 mt-2">
                     <button onClick={() => commitMove(m.id)} style={{ flex: 1, background: '#2d5016', border: 'none', color: S.parchment, padding: '4px', fontSize: 10 }}>Commit</button>
                     <button onClick={() => setPendingMoves(pendingMoves.filter(x => x.id !== m.id))} style={{ flex: 1, background: S.red, border: 'none', color: S.parchment, padding: '4px', fontSize: 10 }}>Cancel</button>
@@ -1141,7 +1199,10 @@ export default function SengokuMap() {
                 return (
                   <div key={m.id} style={{ background: 'rgba(45,80,22,0.3)', border: '1px solid #2d5016', marginBottom: 8, padding: 8 }}>
                     <div className="flex justify-between">
-                      <span style={{ color: S.parchment, fontSize: 12 }}>{provinces[m.from]?.name} → {provinces[m.to]?.name}</span>
+                      <span style={{ color: S.parchment, fontSize: 12 }}>
+                        {provinces[m.from]?.name} → {provinces[m.to]?.name}
+                        {m.armies > 1 && <span style={{ color: '#4a7c23', marginLeft: 6 }}>×{m.armies}</span>}
+                      </span>
                       {hrs < 12 && <button onClick={() => uncommitMove(m.id)} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchmentDark, padding: '2px 8px', fontSize: 9 }}>Undo</button>}
                     </div>
                     <p style={{ color: '#4a7c23', fontSize: 9, marginTop: 4 }}>Committed {hrs < 12 ? `(${Math.round(12 - hrs)}h left)` : '(locked)'}</p>
