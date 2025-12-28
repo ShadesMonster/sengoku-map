@@ -482,8 +482,10 @@ export default function SengokuMap() {
     let newPendingAttacks = [...pendingAttacks];
     
     if (battle.type === 'collision') {
-      // Collision battle - winner continues to their original destination
-      const winnerOriginalDest = winner === battle.attacker ? battle.attackerDest || battle.province : battle.defenderDest || battle.attackerFrom;
+      // Collision: attacker was going from attackerFrom to attackerDest (=defenderFrom)
+      //            defender was going from defenderFrom to defenderDest (=attackerFrom)
+      const winnerOrigin = winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom;
+      const winnerDest = winner === battle.attacker ? (battle.attackerDest || battle.defenderFrom) : (battle.defenderDest || battle.attackerFrom);
       const loserOrigin = winner === battle.attacker ? battle.defenderFrom : battle.attackerFrom;
       
       newLog.push({
@@ -491,10 +493,10 @@ export default function SengokuMap() {
         text: `🏆 ${CLANS[winner]?.name} wins collision! ${CLANS[loser]?.name} army destroyed.`
       });
       
-      // Check if there's a pending attack waiting at the loser's origin
+      // Check if there's a pending attack waiting at the LOSER's origin
+      // (Someone attacked loser's home while they were away - loser is dead, attacker takes it)
       const pendingAtLoserOrigin = newPendingAttacks.find(p => p.to === loserOrigin && p.waitingFor === loser);
       if (pendingAtLoserOrigin) {
-        // Pending attacker now takes the empty province
         newProvinces[loserOrigin] = { 
           ...newProvinces[loserOrigin], 
           owner: pendingAtLoserOrigin.clan, 
@@ -502,26 +504,42 @@ export default function SengokuMap() {
         };
         newLog.push({
           type: 'auto-win',
-          text: `✓ ${CLANS[pendingAtLoserOrigin.clan]?.name} takes ${PROVINCE_DATA[loserOrigin]?.name} - ${CLANS[loser]?.name} never returned!`
+          text: `✓ ${CLANS[pendingAtLoserOrigin.clan]?.name} takes ${PROVINCE_DATA[loserOrigin]?.name} - ${CLANS[loser]?.name} army destroyed in battle!`
         });
         newPendingAttacks = newPendingAttacks.filter(p => p.id !== pendingAtLoserOrigin.id);
       }
       
+      // Check if there's a pending attack waiting at the WINNER's origin
+      // (Someone attacked winner's home - winner won but is continuing to their destination, not returning)
+      const pendingAtWinnerOrigin = newPendingAttacks.find(p => p.to === winnerOrigin && p.waitingFor === winner);
+      if (pendingAtWinnerOrigin) {
+        // Winner is NOT returning home (continuing to destination), so pending attacker takes it
+        newProvinces[winnerOrigin] = { 
+          ...newProvinces[winnerOrigin], 
+          owner: pendingAtWinnerOrigin.clan, 
+          armies: pendingAtWinnerOrigin.armies 
+        };
+        newLog.push({
+          type: 'auto-win',
+          text: `✓ ${CLANS[pendingAtWinnerOrigin.clan]?.name} takes ${PROVINCE_DATA[winnerOrigin]?.name} - ${CLANS[winner]?.name} continued their march!`
+        });
+        newPendingAttacks = newPendingAttacks.filter(p => p.id !== pendingAtWinnerOrigin.id);
+      }
+      
       // Now handle winner continuing to their destination
-      const targetProv = newProvinces[winnerOriginalDest];
+      const targetProv = newProvinces[winnerDest];
       
-      // Check if there's a pending attack at winner's destination waiting for the loser
-      const pendingAtWinnerDest = newPendingAttacks.find(p => p.to === winnerOriginalDest);
+      // Check if there's a pending attack at winner's destination
+      const pendingAtWinnerDest = newPendingAttacks.find(p => p.to === winnerDest);
       
-      if (pendingAtWinnerDest && pendingAtWinnerDest.waitingFor === loser) {
-        // The pending attacker was waiting for the loser, but winner showed up instead!
-        // Create battle between winner and the pending attacker
-        const newBattleType = PROVINCE_DATA[winnerOriginalDest]?.battleType || 'field';
+      if (pendingAtWinnerDest) {
+        // Someone else is also at this location - battle!
+        const newBattleType = PROVINCE_DATA[winnerDest]?.battleType || 'field';
         newBattles.push({
           id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type: 'attack',
           battleType: newBattleType,
-          province: winnerOriginalDest,
+          province: winnerDest,
           attacker: pendingAtWinnerDest.clan,
           defender: winner,
           attackerFrom: pendingAtWinnerDest.from,
@@ -530,50 +548,50 @@ export default function SengokuMap() {
         });
         newLog.push({
           type: 'battle',
-          text: `⚔️ ${CLANS[winner]?.name} arrives at ${PROVINCE_DATA[winnerOriginalDest]?.name} but finds ${CLANS[pendingAtWinnerDest.clan]?.name} waiting!`
+          text: `⚔️ ${CLANS[winner]?.name} arrives at ${PROVINCE_DATA[winnerDest]?.name} but ${CLANS[pendingAtWinnerDest.clan]?.name} is there!`
         });
         newPendingAttacks = newPendingAttacks.filter(p => p.id !== pendingAtWinnerDest.id);
-        // Winner's army is now defending at the destination
-        newProvinces[winnerOriginalDest] = { ...targetProv, owner: winner, armies: winnerArmies };
+        // Winner's army arrives and will fight
+        newProvinces[winnerDest] = { ...targetProv, owner: winner, armies: winnerArmies };
       } else if (targetProv.owner === winner) {
         // Reinforce own territory
-        newProvinces[winnerOriginalDest] = { ...targetProv, armies: targetProv.armies + winnerArmies };
+        newProvinces[winnerDest] = { ...targetProv, armies: targetProv.armies + winnerArmies };
         newLog.push({
           type: 'reinforce',
-          text: `${CLANS[winner]?.name} reinforces ${PROVINCE_DATA[winnerOriginalDest]?.name}`
+          text: `${CLANS[winner]?.name} reinforces ${PROVINCE_DATA[winnerDest]?.name}`
         });
       } else if (targetProv.owner === 'uncontrolled' || targetProv.armies === 0) {
         // Take undefended territory
         const prevOwner = targetProv.owner;
-        newProvinces[winnerOriginalDest] = { ...targetProv, owner: winner, armies: winnerArmies };
+        newProvinces[winnerDest] = { ...targetProv, owner: winner, armies: winnerArmies };
         if (prevOwner !== 'uncontrolled') {
           newLog.push({
             type: 'auto-win',
-            text: `✓ ${CLANS[winner]?.name} takes undefended ${PROVINCE_DATA[winnerOriginalDest]?.name} from ${CLANS[prevOwner]?.name}`
+            text: `✓ ${CLANS[winner]?.name} takes undefended ${PROVINCE_DATA[winnerDest]?.name} from ${CLANS[prevOwner]?.name}`
           });
         } else {
           newLog.push({
             type: 'claim',
-            text: `✓ ${CLANS[winner]?.name} claims ${PROVINCE_DATA[winnerOriginalDest]?.name}`
+            text: `✓ ${CLANS[winner]?.name} claims ${PROVINCE_DATA[winnerDest]?.name}`
           });
         }
       } else {
         // Must fight the current owner
-        const newBattleType = PROVINCE_DATA[winnerOriginalDest]?.battleType || 'field';
+        const newBattleType = PROVINCE_DATA[winnerDest]?.battleType || 'field';
         newBattles.push({
           id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           type: 'attack',
           battleType: newBattleType,
-          province: winnerOriginalDest,
+          province: winnerDest,
           attacker: winner,
           defender: targetProv.owner,
-          attackerFrom: winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom,
+          attackerFrom: winnerOrigin,
           attackerArmies: winnerArmies,
           defenderArmies: targetProv.armies,
         });
         newLog.push({
           type: 'battle',
-          text: `⚔️ ${CLANS[winner]?.name} continues to ${PROVINCE_DATA[winnerOriginalDest]?.name} - faces ${CLANS[targetProv.owner]?.name}!`
+          text: `⚔️ ${CLANS[winner]?.name} continues to ${PROVINCE_DATA[winnerDest]?.name} - faces ${CLANS[targetProv.owner]?.name}!`
         });
       }
     } else {
