@@ -474,15 +474,17 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 2: Province fills */}
+          {/* LAYER 2: Unclaimed province fills */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            if (owner && owner !== 'uncontrolled') return null;
             const isSel = provId === selected, isHov = hovered === provId;
             const isArmy = provId === selectedArmy;
             
             return (
               <path 
-                key={`fill-${path.index}`} 
+                key={`fill-unclaimed-${path.index}`} 
                 id={`province-path-${path.index}`} 
                 d={path.d}
                 fill={provId ? getColor(provId) : '#5c5347'}
@@ -493,13 +495,15 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 3: Outer borders (dark outline for separation) */}
+          {/* LAYER 3: Unclaimed outer borders */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            if (owner && owner !== 'uncontrolled') return null;
             if (provId === hovered || provId === selected) return null;
             return (
               <path
-                key={`outer-border-${path.index}`}
+                key={`outer-border-unclaimed-${path.index}`}
                 d={path.d}
                 fill="none"
                 stroke="#1a1a1a"
@@ -510,7 +514,7 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 4: Inner borders (clan color) - unclaimed first */}
+          {/* LAYER 4: Unclaimed inner borders */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
@@ -528,8 +532,47 @@ export default function SengokuMap() {
               />
             );
           })}
+
+          {/* LAYER 5: Claimed province fills */}
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            if (!owner || owner === 'uncontrolled') return null;
+            const isSel = provId === selected, isHov = hovered === provId;
+            const isArmy = provId === selectedArmy;
+            
+            return (
+              <path 
+                key={`fill-claimed-${path.index}`} 
+                d={path.d}
+                fill={getColor(provId)}
+                fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
+                stroke="none"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+
+          {/* LAYER 6: Claimed outer borders */}
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            if (!owner || owner === 'uncontrolled') return null;
+            if (provId === hovered || provId === selected) return null;
+            return (
+              <path
+                key={`outer-border-claimed-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke="#1a1a1a"
+                strokeWidth="3"
+                strokeLinejoin="round"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
           
-          {/* LAYER 5: Inner borders (clan color) - claimed on top */}
+          {/* LAYER 7: Claimed inner borders */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
@@ -550,7 +593,7 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 6: Hovered/Selected province border (on top) */}
+          {/* LAYER 8: Hovered/Selected province border (on top) */}
           {(hovered || selected) && sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             if (provId !== hovered && provId !== selected) return null;
@@ -580,7 +623,7 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 7: Interaction overlay (clickable) */}
+          {/* LAYER 9: Interaction overlay (clickable) */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const isSel = provId === selected;
