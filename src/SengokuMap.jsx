@@ -1193,6 +1193,16 @@ export default function SengokuMap() {
                     ⚔️ Process Moves ({committedMoves.length})
                   </button>
                 )}
+                <button 
+                  onClick={() => setCurrentPhase(prev => ({ 
+                    ...prev, 
+                    phase: prev.phase === 'PLANNING' ? 'BATTLE' : 'PLANNING',
+                    color: prev.phase === 'PLANNING' ? S.red : '#2d5016'
+                  }))} 
+                  style={{ width: '100%', padding: 10, background: currentPhase.phase === 'PLANNING' ? S.red : '#2d5016', border: 'none', color: S.parchment, fontSize: 12, fontWeight: '600', marginBottom: 8 }}
+                >
+                  🔄 Toggle Phase → {currentPhase.phase === 'PLANNING' ? 'BATTLE' : 'PLANNING'}
+                </button>
                 <button onClick={() => setWeek(w => w + 1)} style={{ width: '100%', padding: 10, background: `linear-gradient(180deg, ${S.gold} 0%, #8b6914 100%)`, border: 'none', color: S.woodDark, fontSize: 12, fontWeight: '600' }}>
                   Week {week} → {week + 1}
                 </button>
