@@ -459,7 +459,7 @@ export default function SengokuMap() {
 
           <image href="/japan-map.jpg" x="-625" y="-150" width="1920" height="1080" style={{ filter: 'brightness(0.9)' }} />
 
-          {/* Land fill layer - renders all province shapes as a base land texture */}
+          {/* LAYER 1: Land texture base */}
           {pathData.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             if (!provId) return null;
@@ -474,38 +474,67 @@ export default function SengokuMap() {
             );
           })}
 
+          {/* LAYER 2: First crosshatch borders (forward order) - pattern: / / / */}
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            const border = owner && owner !== 'uncontrolled' ? CLANS[owner]?.color : null;
+            if (!border) return null;
+            return (
+              <path
+                key={`hatch1-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke={border}
+                strokeWidth="3"
+                strokeDasharray="6,6"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+
+          {/* LAYER 3: Second crosshatch borders (reverse order) - fills gaps */}
+          {[...sortedPaths].reverse().map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            const border = owner && owner !== 'uncontrolled' ? CLANS[owner]?.color : null;
+            if (!border) return null;
+            return (
+              <path
+                key={`hatch2-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke={border}
+                strokeWidth="3"
+                strokeDasharray="6,6"
+                strokeDashoffset="6"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+
+          {/* LAYER 4: Province fills (clickable) */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const isSel = provId === selected, isHov = hovered === provId;
             const isArmy = provId === selectedArmy;
             const isTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
-            const owner = provId && provinces[provId]?.owner;
-            const border = owner && owner !== 'uncontrolled' ? CLANS[owner]?.color : null;
             
             return (
-              <g key={path.index}>
-                {/* Outer dark border for all owned provinces - ensures visibility against neighbors */}
-                {border && !isSel && !isArmy && (
-                  <path d={path.d}
-                    fill="none"
-                    stroke="#1a1a1a"
-                    strokeWidth="4"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                )}
-                {/* Main province path */}
-                <path id={`province-path-${path.index}`} d={path.d}
-                  fill={provId ? getColor(provId) : '#5c5347'}
-                  fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
-                  stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : border || '#3d3529'}
-                  strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : border ? 2 : 1}
-                  filter={isSel || isArmy ? 'url(#glow)' : undefined}
-                  style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
-                  onClick={() => handleProvinceClick(path.index)}
-                  onMouseEnter={() => provId && setHovered(provId)}
-                  onMouseLeave={() => setHovered(null)}
-                />
-              </g>
+              <path 
+                key={`fill-${path.index}`} 
+                id={`province-path-${path.index}`} 
+                d={path.d}
+                fill={provId ? getColor(provId) : '#5c5347'}
+                fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
+                stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : 'none'}
+                strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : 0}
+                filter={isSel || isArmy ? 'url(#glow)' : undefined}
+                style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
+                onClick={() => handleProvinceClick(path.index)}
+                onMouseEnter={() => provId && setHovered(provId)}
+                onMouseLeave={() => setHovered(null)}
+              />
             );
           })}
 
