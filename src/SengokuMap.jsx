@@ -338,15 +338,16 @@ export default function SengokuMap() {
     const selA = pA === selected || pA === selectedArmy, selB = pB === selected || pB === selectedArmy;
     const hovA = hovered === pA, hovB = hovered === pB;
     
-    // Unclaimed always render first (behind everything)
-    if (unclaimedA && !unclaimedB) return -1;
-    if (unclaimedB && !unclaimedA) return 1;
-    
-    // Then selected/hovered on top
+    // Selected/hovered ALWAYS on top (even if unclaimed)
     if (selA && !selB) return 1;
     if (selB && !selA) return -1;
     if (hovA && !hovB) return 1;
     if (hovB && !hovA) return -1;
+    
+    // Then unclaimed render behind claimed
+    if (unclaimedA && !unclaimedB) return -1;
+    if (unclaimedB && !unclaimedA) return 1;
+    
     return 0;
   });
 
@@ -478,19 +479,33 @@ export default function SengokuMap() {
             const isSel = provId === selected, isHov = hovered === provId;
             const isArmy = provId === selectedArmy;
             const isTarget = selectedArmy && provId && provId !== selectedArmy && provinces[selectedArmy]?.neighbors?.includes(provId);
-            const border = provId && provinces[provId]?.owner !== 'uncontrolled' ? CLANS[provinces[provId].owner]?.color : null;
+            const owner = provId && provinces[provId]?.owner;
+            const border = owner && owner !== 'uncontrolled' ? CLANS[owner]?.color : null;
+            
             return (
-              <path key={path.index} id={`province-path-${path.index}`} d={path.d}
-                fill={provId ? getColor(provId) : '#5c5347'}
-                fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
-                stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : border || '#3d3529'}
-                strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : border ? 2 : 1}
-                filter={isSel || isArmy ? 'url(#glow)' : undefined}
-                style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
-                onClick={() => handleProvinceClick(path.index)}
-                onMouseEnter={() => provId && setHovered(provId)}
-                onMouseLeave={() => setHovered(null)}
-              />
+              <g key={path.index}>
+                {/* Outer dark border for all owned provinces - ensures visibility against neighbors */}
+                {border && !isSel && !isArmy && (
+                  <path d={path.d}
+                    fill="none"
+                    stroke="#1a1a1a"
+                    strokeWidth="4"
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )}
+                {/* Main province path */}
+                <path id={`province-path-${path.index}`} d={path.d}
+                  fill={provId ? getColor(provId) : '#5c5347'}
+                  fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
+                  stroke={isArmy ? '#2d5016' : isSel ? S.gold : isTarget ? '#4a7c23' : border || '#3d3529'}
+                  strokeWidth={isSel || isArmy ? 3 : isTarget ? 2.5 : border ? 2 : 1}
+                  filter={isSel || isArmy ? 'url(#glow)' : undefined}
+                  style={{ cursor: provId ? 'pointer' : 'default', transition: 'all 0.15s' }}
+                  onClick={() => handleProvinceClick(path.index)}
+                  onMouseEnter={() => provId && setHovered(provId)}
+                  onMouseLeave={() => setHovered(null)}
+                />
+              </g>
             );
           })}
 
