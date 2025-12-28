@@ -193,6 +193,8 @@ export default function SengokuMap() {
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 732, h: 777 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [activeBattles, setActiveBattles] = useState([]);
+  const [lastProcessedPhase, setLastProcessedPhase] = useState(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -201,6 +203,95 @@ export default function SengokuMap() {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Process moves when battle phase starts
+  useEffect(() => {
+    if (currentPhase.phase === 'BATTLE' && lastProcessedPhase !== `${week}-BATTLE` && committedMoves.length > 0) {
+      processMovesIntoBattles();
+      setLastProcessedPhase(`${week}-BATTLE`);
+    }
+  }, [currentPhase.phase, week]);
+
+  const processMovesIntoBattles = () => {
+    const battles = [];
+    const movesToProcess = [...committedMoves];
+    const newProvinces = { ...provinces };
+    
+    // Group moves by destination to detect collisions
+    const movesByDest = {};
+    movesToProcess.forEach(m => {
+      if (!movesByDest[m.to]) movesByDest[m.to] = [];
+      movesByDest[m.to].push(m);
+    });
+    
+    // Check for head-on collisions (A→B and B→A)
+    const collisions = [];
+    movesToProcess.forEach(m => {
+      const opposing = movesToProcess.find(om => om.from === m.to && om.to === m.from && om.clan !== m.clan);
+      if (opposing && !collisions.find(c => (c.move1.id === m.id || c.move1.id === opposing.id))) {
+        collisions.push({ move1: m, move2: opposing });
+      }
+    });
+    
+    // Create battles for collisions (Sanryō - meeting engagement)
+    collisions.forEach(({ move1, move2 }) => {
+      battles.push({
+        id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        type: 'collision',
+        battleType: 'sanryo',
+        province: move1.to, // or move2.to - they're swapped
+        attacker: move1.clan,
+        defender: move2.clan,
+        attackerFrom: move1.from,
+        defenderFrom: move2.from,
+        attackerArmies: newProvinces[move1.from]?.armies || 1,
+        defenderArmies: newProvinces[move2.from]?.armies || 1,
+      });
+      // Remove armies from source provinces
+      if (newProvinces[move1.from]) newProvinces[move1.from] = { ...newProvinces[move1.from], armies: 0 };
+      if (newProvinces[move2.from]) newProvinces[move2.from] = { ...newProvinces[move2.from], armies: 0 };
+    });
+    
+    // Process remaining moves (attacks on territories)
+    const processedMoveIds = collisions.flatMap(c => [c.move1.id, c.move2.id]);
+    movesToProcess.filter(m => !processedMoveIds.includes(m.id)).forEach(m => {
+      const targetProv = newProvinces[m.to];
+      const sourceProv = newProvinces[m.from];
+      
+      if (targetProv && sourceProv) {
+        if (targetProv.owner === 'uncontrolled') {
+          // Uncontested claim - just take it
+          newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: sourceProv.armies };
+          newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        } else if (targetProv.owner !== m.clan) {
+          // Attack on enemy territory
+          const battleType = PROVINCE_DATA[m.to]?.battleType || 'field';
+          battles.push({
+            id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'attack',
+            battleType: battleType,
+            province: m.to,
+            attacker: m.clan,
+            defender: targetProv.owner,
+            attackerFrom: m.from,
+            attackerArmies: sourceProv.armies,
+            defenderArmies: targetProv.armies,
+          });
+          // Move attacker armies (they're now "in battle" at the province)
+          newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        } else {
+          // Reinforcement to own territory
+          newProvinces[m.to] = { ...targetProv, armies: targetProv.armies + sourceProv.armies };
+          newProvinces[m.from] = { ...sourceProv, armies: 0 };
+        }
+      }
+    });
+    
+    setProvinces(newProvinces);
+    setActiveBattles(battles);
+    setCommittedMoves([]);
+    setPendingMoves([]);
+  };
 
   useEffect(() => {
     fetch('/japan-provinces.svg').then(r => r.text()).then(svg => {
@@ -251,13 +342,52 @@ export default function SengokuMap() {
         if (s.week) setWeek(s.week);
         if (s.committedMoves) setCommittedMoves(s.committedMoves);
         if (s.pendingMoves) setPendingMoves(s.pendingMoves);
+        if (s.activeBattles) setActiveBattles(s.activeBattles);
+        if (s.lastProcessedPhase) setLastProcessedPhase(s.lastProcessedPhase);
       } catch (e) {}
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, week, committedMoves, pendingMoves }));
-  }, [provinces, week, committedMoves, pendingMoves]);
+    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, week, committedMoves, pendingMoves, activeBattles, lastProcessedPhase }));
+  }, [provinces, week, committedMoves, pendingMoves, activeBattles, lastProcessedPhase]);
+
+  const resolveBattle = (battleId, winner) => {
+    const battle = activeBattles.find(b => b.id === battleId);
+    if (!battle) return;
+    
+    const newProvinces = { ...provinces };
+    const winnerClan = winner;
+    const loserClan = winner === battle.attacker ? battle.defender : battle.attacker;
+    
+    if (battle.type === 'collision') {
+      // Collision battle - winner takes both armies' origin provinces stay as is, winner gains the contested middle ground
+      // Actually for collision, let's say winner's army returns home with reduced forces
+      const winnerFrom = winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom;
+      if (newProvinces[winnerFrom]) {
+        newProvinces[winnerFrom] = { ...newProvinces[winnerFrom], armies: 1 }; // Surviving army
+      }
+    } else {
+      // Attack battle - winner takes the province
+      if (winner === battle.attacker) {
+        // Attacker wins - takes the province
+        newProvinces[battle.province] = { 
+          ...newProvinces[battle.province], 
+          owner: battle.attacker, 
+          armies: 1 // Surviving attacking army
+        };
+      } else {
+        // Defender wins - keeps province, attacker loses army
+        newProvinces[battle.province] = { 
+          ...newProvinces[battle.province], 
+          armies: Math.max(1, battle.defenderArmies) // Defender keeps some army
+        };
+      }
+    }
+    
+    setProvinces(newProvinces);
+    setActiveBattles(activeBattles.filter(b => b.id !== battleId));
+  };
 
   const handleWheel = (e) => {
     e.preventDefault();
@@ -743,6 +873,66 @@ export default function SengokuMap() {
           </div>
         )}
 
+        {/* Active Wars Panel (Admin) */}
+        {admin && activeBattles.length > 0 && (
+          <div className="absolute top-20 right-4 z-20" style={{ width: 340, background: S.woodMid, border: `3px solid ${S.red}` }}>
+            <div style={{ padding: '12px 16px', borderBottom: `2px solid ${S.red}`, background: 'rgba(139,0,0,0.3)' }}>
+              <h3 style={{ color: S.parchment, fontSize: '14px', fontWeight: '600' }}>⚔️ Active Wars ({activeBattles.length})</h3>
+            </div>
+            <div style={{ padding: 8, maxHeight: 400, overflowY: 'auto' }}>
+              {activeBattles.map(battle => (
+                <div key={battle.id} style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${S.woodLight}`, marginBottom: 10, padding: 10 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span style={{ color: CLANS[battle.attacker]?.color, fontWeight: '600', fontSize: 13 }}>
+                        {CLANS[battle.attacker]?.name}
+                      </span>
+                      <span style={{ color: S.parchmentDark, fontSize: 10 }}>vs</span>
+                      <span style={{ color: CLANS[battle.defender]?.color, fontWeight: '600', fontSize: 13 }}>
+                        {CLANS[battle.defender]?.name}
+                      </span>
+                    </div>
+                    <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 4 }}>
+                      {battle.type === 'collision' ? '(Meeting Engagement)' : '(Attackers → Defenders)'}
+                    </div>
+                  </div>
+                  
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: 8, marginBottom: 8 }}>
+                    <div style={{ color: S.gold, fontSize: 11, fontWeight: '600' }}>
+                      {BATTLE_TYPES[battle.battleType]?.icon} {BATTLE_TYPES[battle.battleType]?.name}
+                    </div>
+                    <div style={{ color: S.parchment, fontSize: 12, marginTop: 2 }}>
+                      at <span style={{ fontWeight: '600' }}>{PROVINCE_DATA[battle.province]?.name}</span>
+                    </div>
+                    <div style={{ color: S.parchmentDark, fontSize: 9, marginTop: 4 }}>
+                      {BATTLE_TYPES[battle.battleType]?.desc}
+                    </div>
+                  </div>
+                  
+                  <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8 }}>
+                    Armies: {battle.attackerArmies} vs {battle.defenderArmies}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => resolveBattle(battle.id, battle.attacker)}
+                      style={{ flex: 1, padding: 8, background: CLANS[battle.attacker]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
+                    >
+                      {CLANS[battle.attacker]?.name} Wins
+                    </button>
+                    <button 
+                      onClick={() => resolveBattle(battle.id, battle.defender)}
+                      style={{ flex: 1, padding: 8, background: CLANS[battle.defender]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
+                    >
+                      {CLANS[battle.defender]?.name} Wins
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Legend */}
         <div className="absolute bottom-4 left-4 z-10" style={{ background: S.woodMid, border: `3px solid ${S.woodLight}`, padding: '12px 16px' }}>
           <p style={{ color: S.parchmentDark, fontSize: 10, letterSpacing: 2, marginBottom: 8 }}>CLANS</p>
@@ -821,6 +1011,11 @@ export default function SengokuMap() {
                   <button onClick={() => setProvinces({ ...provinces, [selected]: { ...provinces[selected], armies: provinces[selected].armies + 1 } })} style={{ flex: 1, padding: 8, background: '#2d5016', border: 'none', color: S.parchment, fontSize: 11 }}>+ Army</button>
                 </div>
                 <input type="number" value={provinces[selected].rallyCapacity || 0} onChange={e => setProvinces({ ...provinces, [selected]: { ...provinces[selected], rallyCapacity: parseInt(e.target.value) || 0 } })} style={{ width: '100%', padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12, marginBottom: 12 }} placeholder="Rally Capacity" />
+                {committedMoves.length > 0 && (
+                  <button onClick={processMovesIntoBattles} style={{ width: '100%', padding: 10, background: S.red, border: 'none', color: S.parchment, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
+                    ⚔️ Process Moves ({committedMoves.length})
+                  </button>
+                )}
                 <button onClick={() => setWeek(w => w + 1)} style={{ width: '100%', padding: 10, background: `linear-gradient(180deg, ${S.gold} 0%, #8b6914 100%)`, border: 'none', color: S.woodDark, fontSize: 12, fontWeight: '600' }}>
                   Week {week} → {week + 1}
                 </button>
