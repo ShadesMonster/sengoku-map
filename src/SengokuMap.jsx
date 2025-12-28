@@ -478,9 +478,8 @@ export default function SengokuMap() {
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
-            // Only owned provinces get borders - unclaimed get nothing
-            if (!owner || owner === 'uncontrolled') return null;
-            const border = CLANS[owner]?.color;
+            const isUnclaimed = !owner || owner === 'uncontrolled';
+            const border = isUnclaimed ? '#4a4a4a' : CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
@@ -488,8 +487,8 @@ export default function SengokuMap() {
                 d={path.d}
                 fill="none"
                 stroke={border}
-                strokeWidth="3"
-                strokeDasharray="6,6"
+                strokeWidth="2"
+                strokeDasharray="5,5"
                 strokeOpacity="1"
                 style={{ pointerEvents: 'none' }}
               />
@@ -500,9 +499,8 @@ export default function SengokuMap() {
           {[...sortedPaths].reverse().map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
-            // Only owned provinces get borders - unclaimed get nothing
-            if (!owner || owner === 'uncontrolled') return null;
-            const border = CLANS[owner]?.color;
+            const isUnclaimed = !owner || owner === 'uncontrolled';
+            const border = isUnclaimed ? '#4a4a4a' : CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
@@ -510,9 +508,9 @@ export default function SengokuMap() {
                 d={path.d}
                 fill="none"
                 stroke={border}
-                strokeWidth="3"
-                strokeDasharray="6,6"
-                strokeDashoffset="6"
+                strokeWidth="2"
+                strokeDasharray="5,5"
+                strokeDashoffset="5"
                 strokeOpacity="1"
                 style={{ pointerEvents: 'none' }}
               />
