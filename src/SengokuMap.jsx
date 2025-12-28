@@ -22,75 +22,99 @@ const PATH_TO_PROVINCE = {
 const PRIMARY_PATH_FOR_PROVINCE = { higo: 3, yezo: 69 };
 
 const PROVINCE_DATA = {
-  satsuma: { name: 'Satsuma', neighbors: ['osumi', 'higo'] },
-  osumi: { name: 'Osumi', neighbors: ['satsuma', 'hyuga'] },
-  hyuga: { name: 'Hyuga', neighbors: ['osumi', 'higo', 'bungo'] },
-  higo: { name: 'Higo', neighbors: ['satsuma', 'hyuga', 'bungo', 'chikugo', 'hizen'] },
-  bungo: { name: 'Bungo', neighbors: ['hyuga', 'higo', 'buzen', 'chikugo'] },
-  buzen: { name: 'Buzen', neighbors: ['bungo', 'chikugo', 'chikuzen', 'nagato'] },
-  chikugo: { name: 'Chikugo', neighbors: ['higo', 'bungo', 'buzen', 'chikuzen', 'hizen'] },
-  chikuzen: { name: 'Chikuzen', neighbors: ['buzen', 'chikugo', 'hizen', 'nagato'] },
-  hizen: { name: 'Hizen', neighbors: ['higo', 'chikugo', 'chikuzen', 'iki'] },
-  iki: { name: 'Iki', neighbors: ['hizen', 'tsushima'] },
-  tsushima: { name: 'Tsushima', neighbors: ['iki'] },
-  tosa: { name: 'Tosa', neighbors: ['iyo', 'sanuki', 'awa_shikoku'] },
-  iyo: { name: 'Iyo', neighbors: ['tosa', 'sanuki'] },
-  sanuki: { name: 'Sanuki', neighbors: ['tosa', 'iyo', 'awa_shikoku'] },
-  awa_shikoku: { name: 'Awa', neighbors: ['tosa', 'sanuki'] },
-  nagato: { name: 'Nagato', neighbors: ['suo', 'iwami', 'buzen', 'chikuzen'] },
-  suo: { name: 'Suo', neighbors: ['nagato', 'aki', 'iwami'] },
-  aki: { name: 'Aki', neighbors: ['suo', 'bingo', 'iwami'] },
-  bingo: { name: 'Bingo', neighbors: ['aki', 'bitchu', 'izumo', 'hoki', 'mimasaka'] },
-  bitchu: { name: 'Bitchu', neighbors: ['bingo', 'bizen', 'mimasaka'] },
-  bizen: { name: 'Bizen', neighbors: ['bitchu', 'mimasaka', 'harima'] },
-  mimasaka: { name: 'Mimasaka', neighbors: ['bitchu', 'bizen', 'bingo', 'hoki', 'harima', 'inaba'] },
-  iwami: { name: 'Iwami', neighbors: ['nagato', 'suo', 'aki', 'izumo'] },
-  izumo: { name: 'Izumo', neighbors: ['iwami', 'bingo', 'hoki', 'oki'] },
-  hoki: { name: 'Hoki', neighbors: ['izumo', 'bingo', 'mimasaka', 'inaba'] },
-  inaba: { name: 'Inaba', neighbors: ['hoki', 'mimasaka', 'harima', 'tajima'] },
-  oki: { name: 'Oki', neighbors: ['izumo'] },
-  harima: { name: 'Harima', neighbors: ['bizen', 'mimasaka', 'inaba', 'tajima', 'tamba', 'settsu'] },
-  tajima: { name: 'Tajima', neighbors: ['inaba', 'harima', 'tamba', 'tango'] },
-  tamba: { name: 'Tamba', neighbors: ['tajima', 'harima', 'settsu', 'yamashiro', 'tango', 'wakasa'] },
-  tango: { name: 'Tango', neighbors: ['tajima', 'tamba', 'wakasa'] },
-  settsu: { name: 'Settsu', neighbors: ['harima', 'tamba', 'kawachi', 'yamashiro', 'yamato', 'izumi', 'awaji'] },
-  kawachi: { name: 'Kawachi', neighbors: ['settsu', 'yamato', 'kii', 'izumi'] },
-  yamashiro: { name: 'Yamashiro', neighbors: ['tamba', 'settsu', 'omi', 'yamato', 'iga'], special: 'capital' },
-  yamato: { name: 'Yamato', neighbors: ['yamashiro', 'settsu', 'kawachi', 'kii', 'iga', 'ise'] },
-  kii: { name: 'Kii', neighbors: ['kawachi', 'yamato', 'iga', 'ise', 'izumi'] },
-  iga: { name: 'Iga', neighbors: ['yamato', 'kii', 'ise', 'omi', 'yamashiro'] },
-  izumi: { name: 'Izumi', neighbors: ['kawachi', 'kii', 'settsu'] },
-  awaji: { name: 'Awaji', neighbors: ['settsu'] },
-  omi: { name: 'Omi', neighbors: ['yamashiro', 'iga', 'ise', 'mino', 'wakasa', 'echizen'] },
-  wakasa: { name: 'Wakasa', neighbors: ['tango', 'tamba', 'omi', 'echizen'] },
-  echizen: { name: 'Echizen', neighbors: ['wakasa', 'omi', 'mino', 'kaga', 'hida'] },
-  ise: { name: 'Ise', neighbors: ['iga', 'omi', 'mino', 'owari', 'kii', 'yamato', 'shima'] },
-  shima: { name: 'Shima', neighbors: ['ise'] },
-  mino: { name: 'Mino', neighbors: ['omi', 'echizen', 'ise', 'owari', 'hida', 'shinano'] },
-  owari: { name: 'Owari', neighbors: ['ise', 'mino', 'mikawa'] },
-  mikawa: { name: 'Mikawa', neighbors: ['owari', 'totomi', 'shinano'] },
-  totomi: { name: 'Totomi', neighbors: ['mikawa', 'suruga', 'shinano'] },
-  suruga: { name: 'Suruga', neighbors: ['totomi', 'izu', 'kai', 'shinano'] },
-  izu: { name: 'Izu', neighbors: ['suruga', 'sagami'] },
-  kaga: { name: 'Kaga', neighbors: ['echizen', 'noto', 'etchu', 'hida'] },
-  noto: { name: 'Noto', neighbors: ['kaga', 'etchu'] },
-  etchu: { name: 'Etchu', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'shinano'] },
-  hida: { name: 'Hida', neighbors: ['echizen', 'kaga', 'etchu', 'mino', 'shinano'] },
-  shinano: { name: 'Shinano', neighbors: ['mino', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'etchu', 'echigo', 'kozuke', 'musashi'] },
-  kai: { name: 'Kai', neighbors: ['suruga', 'shinano', 'sagami', 'musashi'] },
-  sagami: { name: 'Sagami', neighbors: ['izu', 'kai', 'musashi'] },
-  musashi: { name: 'Musashi', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa', 'shinano'] },
-  kozuke: { name: 'Kozuke', neighbors: ['shinano', 'musashi', 'shimotsuke', 'echigo'] },
-  shimotsuke: { name: 'Shimotsuke', neighbors: ['kozuke', 'musashi', 'shimosa', 'hitachi', 'dewa'] },
-  shimosa: { name: 'Shimosa', neighbors: ['musashi', 'shimotsuke', 'hitachi', 'kazusa'] },
-  kazusa: { name: 'Kazusa', neighbors: ['musashi', 'shimosa', 'awa_kanto'] },
-  awa_kanto: { name: 'Awa', neighbors: ['kazusa'] },
-  hitachi: { name: 'Hitachi', neighbors: ['shimotsuke', 'shimosa', 'dewa'] },
-  echigo: { name: 'Echigo', neighbors: ['etchu', 'shinano', 'kozuke', 'dewa'] },
-  sado: { name: 'Sado', neighbors: ['echigo'] },
-  dewa: { name: 'Dewa', neighbors: ['echigo', 'shimotsuke', 'hitachi', 'mutsu'] },
-  mutsu: { name: 'Mutsu', neighbors: ['dewa', 'yezo'] },
-  yezo: { name: 'Yezo', neighbors: ['mutsu'] },
+  // Kyushu
+  satsuma: { name: 'Satsuma', neighbors: ['osumi', 'higo'], battleType: 'castle' },
+  osumi: { name: 'Osumi', neighbors: ['satsuma', 'hyuga'], battleType: 'village' },
+  hyuga: { name: 'Hyuga', neighbors: ['osumi', 'higo', 'bungo'], battleType: 'field' },
+  higo: { name: 'Higo', neighbors: ['satsuma', 'hyuga', 'bungo', 'chikugo', 'hizen'], battleType: 'village' },
+  bungo: { name: 'Bungo', neighbors: ['hyuga', 'higo', 'buzen', 'chikugo'], battleType: 'village' },
+  buzen: { name: 'Buzen', neighbors: ['bungo', 'chikugo', 'chikuzen', 'nagato'], battleType: 'field' },
+  chikugo: { name: 'Chikugo', neighbors: ['higo', 'bungo', 'buzen', 'chikuzen', 'hizen'], battleType: 'field' },
+  chikuzen: { name: 'Chikuzen', neighbors: ['buzen', 'chikugo', 'hizen', 'nagato'], battleType: 'village' },
+  hizen: { name: 'Hizen', neighbors: ['higo', 'chikugo', 'chikuzen', 'iki'], battleType: 'village' },
+  iki: { name: 'Iki', neighbors: ['hizen', 'tsushima'], battleType: 'field' },
+  tsushima: { name: 'Tsushima', neighbors: ['iki'], battleType: 'village' },
+  
+  // Shikoku
+  tosa: { name: 'Tosa', neighbors: ['iyo', 'sanuki', 'awa_shikoku'], battleType: 'castle' },
+  iyo: { name: 'Iyo', neighbors: ['tosa', 'sanuki'], battleType: 'village' },
+  sanuki: { name: 'Sanuki', neighbors: ['tosa', 'iyo', 'awa_shikoku'], battleType: 'village' },
+  awa_shikoku: { name: 'Awa', neighbors: ['tosa', 'sanuki'], battleType: 'field' },
+  
+  // Chugoku
+  nagato: { name: 'Nagato', neighbors: ['suo', 'iwami', 'buzen', 'chikuzen'], battleType: 'village' },
+  suo: { name: 'Suo', neighbors: ['nagato', 'aki', 'iwami'], battleType: 'field' },
+  aki: { name: 'Aki', neighbors: ['suo', 'bingo', 'iwami'], battleType: 'castle' },
+  bingo: { name: 'Bingo', neighbors: ['aki', 'bitchu', 'izumo', 'hoki', 'mimasaka'], battleType: 'village' },
+  bitchu: { name: 'Bitchu', neighbors: ['bingo', 'bizen', 'mimasaka'], battleType: 'field' },
+  bizen: { name: 'Bizen', neighbors: ['bitchu', 'mimasaka', 'harima'], battleType: 'village' },
+  mimasaka: { name: 'Mimasaka', neighbors: ['bitchu', 'bizen', 'bingo', 'hoki', 'harima', 'inaba'], battleType: 'field' },
+  iwami: { name: 'Iwami', neighbors: ['nagato', 'suo', 'aki', 'izumo'], battleType: 'field' },
+  izumo: { name: 'Izumo', neighbors: ['iwami', 'bingo', 'hoki', 'oki'], battleType: 'village' },
+  hoki: { name: 'Hoki', neighbors: ['izumo', 'bingo', 'mimasaka', 'inaba'], battleType: 'field' },
+  inaba: { name: 'Inaba', neighbors: ['hoki', 'mimasaka', 'harima', 'tajima'], battleType: 'village' },
+  oki: { name: 'Oki', neighbors: ['izumo'], battleType: 'field' },
+  
+  // Kinki
+  harima: { name: 'Harima', neighbors: ['bizen', 'mimasaka', 'inaba', 'tajima', 'tamba', 'settsu'], battleType: 'village' },
+  tajima: { name: 'Tajima', neighbors: ['inaba', 'harima', 'tamba', 'tango'], battleType: 'field' },
+  tamba: { name: 'Tamba', neighbors: ['tajima', 'harima', 'settsu', 'yamashiro', 'tango', 'wakasa'], battleType: 'field' },
+  tango: { name: 'Tango', neighbors: ['tajima', 'tamba', 'wakasa'], battleType: 'village' },
+  settsu: { name: 'Settsu', neighbors: ['harima', 'tamba', 'kawachi', 'yamashiro', 'yamato', 'izumi', 'awaji'], battleType: 'castle' },
+  kawachi: { name: 'Kawachi', neighbors: ['settsu', 'yamato', 'kii', 'izumi'], battleType: 'village' },
+  yamashiro: { name: 'Yamashiro', neighbors: ['tamba', 'settsu', 'omi', 'yamato', 'iga'], battleType: 'castle', special: 'capital' },
+  yamato: { name: 'Yamato', neighbors: ['yamashiro', 'settsu', 'kawachi', 'kii', 'iga', 'ise'], battleType: 'village' },
+  kii: { name: 'Kii', neighbors: ['kawachi', 'yamato', 'iga', 'ise', 'izumi'], battleType: 'field' },
+  iga: { name: 'Iga', neighbors: ['yamato', 'kii', 'ise', 'omi', 'yamashiro'], battleType: 'village' },
+  izumi: { name: 'Izumi', neighbors: ['kawachi', 'kii', 'settsu'], battleType: 'field' },
+  awaji: { name: 'Awaji', neighbors: ['settsu'], battleType: 'field' },
+  
+  // Central Japan (includes Sanryo battlegrounds)
+  omi: { name: 'Omi', neighbors: ['yamashiro', 'iga', 'ise', 'mino', 'wakasa', 'echizen'], battleType: 'sanryo' },
+  wakasa: { name: 'Wakasa', neighbors: ['tango', 'tamba', 'omi', 'echizen'], battleType: 'village' },
+  echizen: { name: 'Echizen', neighbors: ['wakasa', 'omi', 'mino', 'kaga', 'hida'], battleType: 'village' },
+  ise: { name: 'Ise', neighbors: ['iga', 'omi', 'mino', 'owari', 'kii', 'yamato', 'shima'], battleType: 'village' },
+  shima: { name: 'Shima', neighbors: ['ise'], battleType: 'field' },
+  mino: { name: 'Mino', neighbors: ['omi', 'echizen', 'ise', 'owari', 'hida', 'shinano'], battleType: 'sanryo' },
+  owari: { name: 'Owari', neighbors: ['ise', 'mino', 'mikawa'], battleType: 'castle' },
+  mikawa: { name: 'Mikawa', neighbors: ['owari', 'totomi', 'shinano'], battleType: 'sanryo' },
+  totomi: { name: 'Totomi', neighbors: ['mikawa', 'suruga', 'shinano'], battleType: 'village' },
+  suruga: { name: 'Suruga', neighbors: ['totomi', 'izu', 'kai', 'shinano'], battleType: 'castle' },
+  izu: { name: 'Izu', neighbors: ['suruga', 'sagami'], battleType: 'village' },
+  
+  // Hokuriku
+  kaga: { name: 'Kaga', neighbors: ['echizen', 'noto', 'etchu', 'hida'], battleType: 'village' },
+  noto: { name: 'Noto', neighbors: ['kaga', 'etchu'], battleType: 'field' },
+  etchu: { name: 'Etchu', neighbors: ['kaga', 'noto', 'hida', 'echigo', 'shinano'], battleType: 'field' },
+  hida: { name: 'Hida', neighbors: ['echizen', 'kaga', 'etchu', 'mino', 'shinano'], battleType: 'field' },
+  
+  // Chubu
+  shinano: { name: 'Shinano', neighbors: ['mino', 'mikawa', 'totomi', 'suruga', 'kai', 'hida', 'etchu', 'echigo', 'kozuke', 'musashi'], battleType: 'sanryo' },
+  kai: { name: 'Kai', neighbors: ['suruga', 'shinano', 'sagami', 'musashi'], battleType: 'castle' },
+  
+  // Kanto
+  sagami: { name: 'Sagami', neighbors: ['izu', 'kai', 'musashi'], battleType: 'castle' },
+  musashi: { name: 'Musashi', neighbors: ['sagami', 'kai', 'kozuke', 'shimotsuke', 'shimosa', 'kazusa', 'shinano'], battleType: 'castle' },
+  kozuke: { name: 'Kozuke', neighbors: ['shinano', 'musashi', 'shimotsuke', 'echigo'], battleType: 'village' },
+  shimotsuke: { name: 'Shimotsuke', neighbors: ['kozuke', 'musashi', 'shimosa', 'hitachi', 'dewa'], battleType: 'field' },
+  shimosa: { name: 'Shimosa', neighbors: ['musashi', 'shimotsuke', 'hitachi', 'kazusa'], battleType: 'field' },
+  kazusa: { name: 'Kazusa', neighbors: ['musashi', 'shimosa', 'awa_kanto'], battleType: 'village' },
+  awa_kanto: { name: 'Awa', neighbors: ['kazusa'], battleType: 'village' },
+  hitachi: { name: 'Hitachi', neighbors: ['shimotsuke', 'shimosa', 'dewa'], battleType: 'village' },
+  
+  // Hokuriku/Tohoku
+  echigo: { name: 'Echigo', neighbors: ['etchu', 'shinano', 'kozuke', 'dewa'], battleType: 'castle' },
+  sado: { name: 'Sado', neighbors: ['echigo'], battleType: 'field' },
+  dewa: { name: 'Dewa', neighbors: ['echigo', 'shimotsuke', 'hitachi', 'mutsu'], battleType: 'field' },
+  mutsu: { name: 'Mutsu', neighbors: ['dewa', 'yezo'], battleType: 'castle' },
+  yezo: { name: 'Yezo', neighbors: ['mutsu'], battleType: 'field' },
+};
+
+const BATTLE_TYPES = {
+  castle: { name: 'Castle Siege', icon: '🏯', desc: 'Fortified stronghold - Defender advantage' },
+  village: { name: 'Village Raid', icon: '🏘️', desc: 'Minor settlement - Balanced battle' },
+  field: { name: 'Open Field', icon: '⚔️', desc: 'Rural terrain - Attacker advantage' },
+  sanryo: { name: 'Sanryō Battleground', icon: '🎌', desc: '3-point control - Strategic territory' },
 };
 
 const CLANS = {
@@ -599,6 +623,19 @@ export default function SengokuMap() {
                 <span style={{ color: S.parchment, fontSize: 24, fontWeight: '600' }}>{provinces[selected].rallyCapacity || 0}</span>
               </div>
             </div>
+
+            {/* Battle Type */}
+            {PROVINCE_DATA[selected]?.battleType && (
+              <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
+                <div className="flex items-center gap-3">
+                  <span style={{ fontSize: 24 }}>{BATTLE_TYPES[PROVINCE_DATA[selected].battleType]?.icon}</span>
+                  <div>
+                    <p style={{ color: S.parchment, fontWeight: '600' }}>{BATTLE_TYPES[PROVINCE_DATA[selected].battleType]?.name}</p>
+                    <p style={{ color: S.parchmentDark, fontSize: 10 }}>{BATTLE_TYPES[PROVINCE_DATA[selected].battleType]?.desc}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {provinces[selected].owner === clan && provinces[selected].armies > 0 && currentPhase.phase === 'PLANNING' && (
               <button onClick={() => startArmyMove(selected)} style={{ width: '100%', padding: 12, background: 'linear-gradient(180deg, #3d6b1e 0%, #2d5016 100%)', border: `2px solid #4a7c23`, color: S.parchment, fontSize: 14, fontWeight: '600', marginBottom: 16 }}>
