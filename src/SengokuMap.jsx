@@ -543,7 +543,8 @@ export default function SengokuMap() {
             
             return (
               <path 
-                key={`fill-claimed-${path.index}`} 
+                key={`fill-claimed-${path.index}`}
+                id={`province-path-${path.index}`}
                 d={path.d}
                 fill={getColor(provId)}
                 fillOpacity={isSel || isArmy ? 1 : isHov ? 0.85 : 0.75}
