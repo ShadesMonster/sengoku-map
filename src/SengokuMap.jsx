@@ -231,6 +231,8 @@ export default function SengokuMap() {
       if (movesByRoute.has(key)) {
         const existing = movesByRoute.get(key);
         existing.armies = (existing.armies || 1) + (m.armies || 1);
+        // Keep earliest commit time
+        if (m.committedAt < existing.committedAt) existing.committedAt = m.committedAt;
       } else {
         const merged = { ...m, armies: m.armies || 1 };
         movesByRoute.set(key, merged);
@@ -250,7 +252,14 @@ export default function SengokuMap() {
       });
     });
     
-    // STEP 1: Identify all collisions (A→B and B→A)
+    // STEP 1: Group moves by destination to detect multi-clan scenarios
+    const movesByDestination = new Map();
+    movesToProcess.forEach(m => {
+      if (!movesByDestination.has(m.to)) movesByDestination.set(m.to, []);
+      movesByDestination.get(m.to).push(m);
+    });
+    
+    // STEP 2: Identify standard collisions (A→B and B→A) - these take priority
     const collisions = [];
     const collisionMoveIds = new Set();
     const collisionClans = new Set();
@@ -269,7 +278,7 @@ export default function SengokuMap() {
       }
     });
     
-    // STEP 2: Process collisions
+    // STEP 3: Process standard collisions
     collisions.forEach(({ move1, move2 }) => {
       const army1 = move1.armies || 1;
       const army2 = move2.armies || 1;
@@ -308,7 +317,6 @@ export default function SengokuMap() {
       
       battles.push(battle);
       
-      // Deduct armies (not set to 0, in case there are leftovers from split)
       newProvinces[move1.from] = { ...newProvinces[move1.from], armies: newProvinces[move1.from].armies - army1 };
       newProvinces[move2.from] = { ...newProvinces[move2.from], armies: newProvinces[move2.from].armies - army2 };
       
@@ -318,92 +326,236 @@ export default function SengokuMap() {
       });
     });
     
-    // STEP 3: Process remaining moves
+    // STEP 4: Process remaining moves, handling multi-clan rushes
     const remainingMoves = movesToProcess.filter(m => !collisionMoveIds.has(m.id));
+    const processedMoveIds = new Set();
     
+    // Group remaining moves by destination
+    const remainingByDest = new Map();
     remainingMoves.forEach(m => {
-      const armyCount = m.armies || 1;
-      const sourceProv = newProvinces[m.from];
-      const targetProv = newProvinces[m.to];
+      if (!remainingByDest.has(m.to)) remainingByDest.set(m.to, []);
+      remainingByDest.get(m.to).push(m);
+    });
+    
+    // Process each destination
+    remainingByDest.forEach((destMoves, destProvId) => {
+      const targetProv = newProvinces[destProvId];
       
-      if (sourceProv.armies < armyCount) {
-        log.push({
-          type: 'skip',
-          text: `${CLANS[m.clan]?.name} order cancelled - not enough armies at ${PROVINCE_DATA[m.from]?.name}`
-        });
-        return;
-      }
+      // Get unique clans moving to this destination
+      const clanMoves = new Map();
+      destMoves.forEach(m => {
+        if (!clanMoves.has(m.clan)) clanMoves.set(m.clan, m);
+      });
       
-      if (targetProv.owner === m.clan) {
-        // REINFORCEMENT
-        newProvinces[m.to] = { ...targetProv, armies: targetProv.armies + armyCount };
-        newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
-        log.push({
-          type: 'reinforce',
-          text: `${CLANS[m.clan]?.name} reinforces ${PROVINCE_DATA[m.to]?.name} (+${armyCount})`
-        });
-      } else if (targetProv.owner === 'uncontrolled') {
-        // CLAIM
-        newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: armyCount };
-        newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
-        log.push({
-          type: 'claim',
-          text: `✓ ${CLANS[m.clan]?.name} claims ${PROVINCE_DATA[m.to]?.name}`
-        });
-      } else {
-        // ATTACK
-        const defenderInCollision = collisionClans.has(targetProv.owner) && 
-          collisions.some(c => 
-            (c.move1.clan === targetProv.owner && c.move1.from === m.to) ||
-            (c.move2.clan === targetProv.owner && c.move2.from === m.to)
-          );
+      const uniqueClans = Array.from(clanMoves.values());
+      
+      // Sort by commit time (earliest first)
+      uniqueClans.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+      
+      if (targetProv.owner === 'uncontrolled' && uniqueClans.length > 1) {
+        // MULTI-CLAN RUSH ON UNCLAIMED TERRITORY
+        const firstMove = uniqueClans[0];
+        const challengers = uniqueClans.slice(1);
         
-        if (defenderInCollision) {
-          pendingAttacksNew.push({
-            id: `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            clan: m.clan,
-            from: m.from,
-            to: m.to,
-            armies: armyCount,
-            waitingFor: targetProv.owner,
-          });
-          
-          newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+        // First to commit claims the province
+        const firstArmyCount = firstMove.armies || 1;
+        const sourceProv = newProvinces[firstMove.from];
+        
+        if (sourceProv.armies >= firstArmyCount) {
+          newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armies: firstArmyCount };
+          newProvinces[firstMove.from] = { ...sourceProv, armies: sourceProv.armies - firstArmyCount };
           
           log.push({
-            type: 'pending',
-            text: `⏳ ${CLANS[m.clan]?.name} (${armyCount}) at ${PROVINCE_DATA[m.to]?.name} - waiting for ${CLANS[targetProv.owner]?.name}`
-          });
-        } else if (targetProv.armies === 0) {
-          // AUTO-WIN
-          newProvinces[m.to] = { ...targetProv, owner: m.clan, armies: armyCount };
-          newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
-          log.push({
-            type: 'auto-win',
-            text: `✓ ${CLANS[m.clan]?.name} takes undefended ${PROVINCE_DATA[m.to]?.name}`
-          });
-        } else {
-          // BATTLE
-          const battleType = PROVINCE_DATA[m.to]?.battleType || 'field';
-          battles.push({
-            id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            type: 'attack',
-            battleType: battleType,
-            province: m.to,
-            attacker: m.clan,
-            defender: targetProv.owner,
-            attackerFrom: m.from,
-            attackerArmies: armyCount,
-            defenderArmies: targetProv.armies,
+            type: 'claim',
+            text: `✓ ${CLANS[firstMove.clan]?.name} claims ${PROVINCE_DATA[destProvId]?.name} (first to commit)`
           });
           
-          newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
-          
-          log.push({
-            type: 'battle',
-            text: `⚔️ ${CLANS[m.clan]?.name} (${armyCount}) attacks ${CLANS[targetProv.owner]?.name} (${targetProv.armies}) at ${PROVINCE_DATA[m.to]?.name}`
+          // Deduct armies from all challengers
+          challengers.forEach(m => {
+            const src = newProvinces[m.from];
+            const armyCount = m.armies || 1;
+            if (src.armies >= armyCount) {
+              newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+            }
           });
+          
+          // Create elimination bracket for challengers
+          if (challengers.length === 1) {
+            // Only one challenger - direct battle vs claimer
+            const challenger = challengers[0];
+            battles.push({
+              id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              type: 'attack',
+              battleType: PROVINCE_DATA[destProvId]?.battleType || 'field',
+              province: destProvId,
+              attacker: challenger.clan,
+              defender: firstMove.clan,
+              attackerFrom: challenger.from,
+              attackerArmies: challenger.armies || 1,
+              defenderArmies: firstArmyCount,
+            });
+            
+            log.push({
+              type: 'battle',
+              text: `⚔️ ${CLANS[challenger.clan]?.name} (${challenger.armies || 1}) contests ${CLANS[firstMove.clan]?.name}'s claim on ${PROVINCE_DATA[destProvId]?.name}!`
+            });
+          } else {
+            // Multiple challengers - create elimination bracket
+            // Pair them up for field battles, winner chain continues
+            const bracketBattles = [];
+            
+            // Create pairs (if odd number, last one gets a bye)
+            for (let i = 0; i < challengers.length; i += 2) {
+              if (i + 1 < challengers.length) {
+                // Pair battle
+                const c1 = challengers[i];
+                const c2 = challengers[i + 1];
+                bracketBattles.push({
+                  id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
+                  type: 'elimination',
+                  battleType: 'field',
+                  province: destProvId,
+                  attacker: c1.clan,
+                  defender: c2.clan,
+                  attackerFrom: c1.from,
+                  defenderFrom: c2.from,
+                  attackerArmies: c1.armies || 1,
+                  defenderArmies: c2.armies || 1,
+                  bracketRound: 1,
+                  bracketTarget: destProvId,
+                  bracketClaimer: firstMove.clan,
+                  bracketClaimerArmies: firstArmyCount,
+                  chainInfo: {
+                    attackerWinsNext: 'Advances in bracket',
+                    defenderWinsNext: 'Advances in bracket',
+                  }
+                });
+                
+                log.push({
+                  type: 'battle',
+                  text: `⚔️ Elimination: ${CLANS[c1.clan]?.name} vs ${CLANS[c2.clan]?.name} (bracket for ${PROVINCE_DATA[destProvId]?.name})`
+                });
+              } else {
+                // Bye - this challenger waits for bracket winners
+                const byeChallenger = challengers[i];
+                bracketBattles.push({
+                  id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-bye`,
+                  type: 'bye',
+                  battleType: 'field',
+                  province: destProvId,
+                  attacker: byeChallenger.clan,
+                  attackerFrom: byeChallenger.from,
+                  attackerArmies: byeChallenger.armies || 1,
+                  bracketRound: 2,
+                  bracketTarget: destProvId,
+                  bracketClaimer: firstMove.clan,
+                  bracketClaimerArmies: firstArmyCount,
+                });
+                
+                log.push({
+                  type: 'pending',
+                  text: `⏳ ${CLANS[byeChallenger.clan]?.name} gets bye, waits for bracket results`
+                });
+              }
+            }
+            
+            battles.push(...bracketBattles);
+          }
         }
+        
+        // Mark all these moves as processed
+        uniqueClans.forEach(m => processedMoveIds.add(m.id));
+        
+      } else {
+        // Single clan or claimed territory - process normally one by one
+        uniqueClans.forEach(m => {
+          if (processedMoveIds.has(m.id)) return;
+          processedMoveIds.add(m.id);
+          
+          const armyCount = m.armies || 1;
+          const sourceProv = newProvinces[m.from];
+          const currentTarget = newProvinces[m.to];
+          
+          if (sourceProv.armies < armyCount) {
+            log.push({
+              type: 'skip',
+              text: `${CLANS[m.clan]?.name} order cancelled - not enough armies at ${PROVINCE_DATA[m.from]?.name}`
+            });
+            return;
+          }
+          
+          if (currentTarget.owner === m.clan) {
+            // REINFORCEMENT
+            newProvinces[m.to] = { ...currentTarget, armies: currentTarget.armies + armyCount };
+            newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+            log.push({
+              type: 'reinforce',
+              text: `${CLANS[m.clan]?.name} reinforces ${PROVINCE_DATA[m.to]?.name} (+${armyCount})`
+            });
+          } else if (currentTarget.owner === 'uncontrolled') {
+            // CLAIM (single clan)
+            newProvinces[m.to] = { ...currentTarget, owner: m.clan, armies: armyCount };
+            newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+            log.push({
+              type: 'claim',
+              text: `✓ ${CLANS[m.clan]?.name} claims ${PROVINCE_DATA[m.to]?.name}`
+            });
+          } else {
+            // ATTACK
+            const defenderInCollision = collisionClans.has(currentTarget.owner) && 
+              collisions.some(c => 
+                (c.move1.clan === currentTarget.owner && c.move1.from === m.to) ||
+                (c.move2.clan === currentTarget.owner && c.move2.from === m.to)
+              );
+            
+            if (defenderInCollision) {
+              pendingAttacksNew.push({
+                id: `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                clan: m.clan,
+                from: m.from,
+                to: m.to,
+                armies: armyCount,
+                waitingFor: currentTarget.owner,
+              });
+              
+              newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+              
+              log.push({
+                type: 'pending',
+                text: `⏳ ${CLANS[m.clan]?.name} (${armyCount}) at ${PROVINCE_DATA[m.to]?.name} - waiting for ${CLANS[currentTarget.owner]?.name}`
+              });
+            } else if (currentTarget.armies === 0) {
+              // AUTO-WIN
+              newProvinces[m.to] = { ...currentTarget, owner: m.clan, armies: armyCount };
+              newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+              log.push({
+                type: 'auto-win',
+                text: `✓ ${CLANS[m.clan]?.name} takes undefended ${PROVINCE_DATA[m.to]?.name}`
+              });
+            } else {
+              // BATTLE
+              const battleType = PROVINCE_DATA[m.to]?.battleType || 'field';
+              battles.push({
+                id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                type: 'attack',
+                battleType: battleType,
+                province: m.to,
+                attacker: m.clan,
+                defender: currentTarget.owner,
+                attackerFrom: m.from,
+                attackerArmies: armyCount,
+                defenderArmies: currentTarget.armies,
+              });
+              
+              newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+              
+              log.push({
+                type: 'battle',
+                text: `⚔️ ${CLANS[m.clan]?.name} (${armyCount}) attacks ${CLANS[currentTarget.owner]?.name} (${currentTarget.armies}) at ${PROVINCE_DATA[m.to]?.name}`
+              });
+            }
+          }
+        });
       }
     });
     
@@ -623,6 +775,88 @@ export default function SengokuMap() {
         newLog.push({
           type: 'result',
           text: `🛡️ ${CLANS[winner]?.name} defends ${PROVINCE_DATA[battle.province]?.name}! ${CLANS[loser]?.name} army destroyed.`
+        });
+      }
+    }
+    
+    // Handle elimination bracket battles
+    if (battle.type === 'elimination') {
+      newLog.push({
+        type: 'result',
+        text: `🏆 ${CLANS[winner]?.name} wins elimination round! ${CLANS[loser]?.name} army destroyed.`
+      });
+      
+      // Check if there are other battles/byes in this bracket
+      const sameBracketBattles = newBattles.filter(b => 
+        b.bracketTarget === battle.bracketTarget && (b.type === 'elimination' || b.type === 'bye')
+      );
+      const byeBattle = sameBracketBattles.find(b => b.type === 'bye');
+      const otherElimBattles = sameBracketBattles.filter(b => b.type === 'elimination');
+      
+      if (otherElimBattles.length === 0 && !byeBattle) {
+        // This was the last elimination battle - winner fights the claimer
+        const claimerProv = newProvinces[battle.bracketTarget];
+        newBattles.push({
+          id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'attack',
+          battleType: PROVINCE_DATA[battle.bracketTarget]?.battleType || 'field',
+          province: battle.bracketTarget,
+          attacker: winner,
+          defender: battle.bracketClaimer,
+          attackerFrom: winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom,
+          attackerArmies: winnerArmies,
+          defenderArmies: battle.bracketClaimerArmies,
+        });
+        newLog.push({
+          type: 'battle',
+          text: `⚔️ ${CLANS[winner]?.name} advances to fight ${CLANS[battle.bracketClaimer]?.name} for ${PROVINCE_DATA[battle.bracketTarget]?.name}!`
+        });
+      } else if (byeBattle) {
+        // Winner fights the bye holder
+        newBattles = newBattles.filter(b => b.id !== byeBattle.id);
+        newBattles.push({
+          id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'elimination',
+          battleType: 'field',
+          province: battle.bracketTarget,
+          attacker: winner,
+          defender: byeBattle.attacker,
+          attackerFrom: winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom,
+          defenderFrom: byeBattle.attackerFrom,
+          attackerArmies: winnerArmies,
+          defenderArmies: byeBattle.attackerArmies,
+          bracketRound: (battle.bracketRound || 1) + 1,
+          bracketTarget: battle.bracketTarget,
+          bracketClaimer: battle.bracketClaimer,
+          bracketClaimerArmies: battle.bracketClaimerArmies,
+          chainInfo: {
+            attackerWinsNext: 'Advances to fight claimer',
+            defenderWinsNext: 'Advances to fight claimer',
+          }
+        });
+        newLog.push({
+          type: 'battle',
+          text: `⚔️ ${CLANS[winner]?.name} vs ${CLANS[byeBattle.attacker]?.name} (bracket semi-final)`
+        });
+      } else if (otherElimBattles.length === 1) {
+        // There's one other elimination battle - wait for it, then winners fight
+        // Mark this winner as waiting
+        newBattles.push({
+          id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'bye',
+          battleType: 'field',
+          province: battle.bracketTarget,
+          attacker: winner,
+          attackerFrom: winner === battle.attacker ? battle.attackerFrom : battle.defenderFrom,
+          attackerArmies: winnerArmies,
+          bracketRound: (battle.bracketRound || 1) + 1,
+          bracketTarget: battle.bracketTarget,
+          bracketClaimer: battle.bracketClaimer,
+          bracketClaimerArmies: battle.bracketClaimerArmies,
+        });
+        newLog.push({
+          type: 'pending',
+          text: `⏳ ${CLANS[winner]?.name} awaits other bracket results`
         });
       }
     }
@@ -1227,13 +1461,20 @@ export default function SengokuMap() {
                       <span style={{ color: CLANS[battle.attacker]?.color, fontWeight: '600', fontSize: 13 }}>
                         {CLANS[battle.attacker]?.name}
                       </span>
-                      <span style={{ color: S.parchmentDark, fontSize: 10 }}>vs</span>
-                      <span style={{ color: CLANS[battle.defender]?.color, fontWeight: '600', fontSize: 13 }}>
-                        {CLANS[battle.defender]?.name}
-                      </span>
+                      {battle.type !== 'bye' && (
+                        <>
+                          <span style={{ color: S.parchmentDark, fontSize: 10 }}>vs</span>
+                          <span style={{ color: CLANS[battle.defender]?.color, fontWeight: '600', fontSize: 13 }}>
+                            {CLANS[battle.defender]?.name}
+                          </span>
+                        </>
+                      )}
                     </div>
                     <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 4 }}>
-                      {battle.type === 'collision' ? '(Meeting Engagement)' : '(Attackers → Defenders)'}
+                      {battle.type === 'collision' ? '(Meeting Engagement)' : 
+                       battle.type === 'elimination' ? `(Elimination Round ${battle.bracketRound || 1})` :
+                       battle.type === 'bye' ? '(Bye - Waiting)' :
+                       '(Attackers → Defenders)'}
                     </div>
                   </div>
                   
@@ -1242,16 +1483,27 @@ export default function SengokuMap() {
                       {BATTLE_TYPES[battle.battleType]?.icon} {BATTLE_TYPES[battle.battleType]?.name}
                     </div>
                     <div style={{ color: S.parchment, fontSize: 12, marginTop: 2 }}>
-                      at <span style={{ fontWeight: '600' }}>{PROVINCE_DATA[battle.province]?.name}</span>
+                      {battle.type === 'elimination' || battle.type === 'bye' ? 'for' : 'at'} <span style={{ fontWeight: '600' }}>{PROVINCE_DATA[battle.province]?.name}</span>
+                      {battle.bracketClaimer && (
+                        <span style={{ color: S.parchmentDark, fontSize: 10 }}> (claimed by {CLANS[battle.bracketClaimer]?.name})</span>
+                      )}
                     </div>
                     <div style={{ color: S.parchmentDark, fontSize: 9, marginTop: 4 }}>
                       {BATTLE_TYPES[battle.battleType]?.desc}
                     </div>
                   </div>
                   
-                  <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8 }}>
-                    Armies: {battle.attackerArmies} vs {battle.defenderArmies}
-                  </div>
+                  {battle.type !== 'bye' && (
+                    <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8 }}>
+                      Armies: {battle.attackerArmies} vs {battle.defenderArmies}
+                    </div>
+                  )}
+                  
+                  {battle.type === 'bye' && (
+                    <div style={{ color: S.gold, fontSize: 10, marginBottom: 8, fontStyle: 'italic' }}>
+                      ⏳ Waiting for other bracket results ({battle.attackerArmies} armies)
+                    </div>
+                  )}
                   
                   {/* Chain Info - what happens next */}
                   {battle.chainInfo && (
@@ -1260,26 +1512,30 @@ export default function SengokuMap() {
                       <div style={{ color: CLANS[battle.attacker]?.color }}>
                         If {CLANS[battle.attacker]?.name} wins → {battle.chainInfo.attackerWinsNext}
                       </div>
-                      <div style={{ color: CLANS[battle.defender]?.color, marginTop: 2 }}>
-                        If {CLANS[battle.defender]?.name} wins → {battle.chainInfo.defenderWinsNext}
-                      </div>
+                      {battle.defender && (
+                        <div style={{ color: CLANS[battle.defender]?.color, marginTop: 2 }}>
+                          If {CLANS[battle.defender]?.name} wins → {battle.chainInfo.defenderWinsNext}
+                        </div>
+                      )}
                     </div>
                   )}
                   
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => resolveBattle(battle.id, battle.attacker)}
-                      style={{ flex: 1, padding: 8, background: CLANS[battle.attacker]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
-                    >
-                      {CLANS[battle.attacker]?.name} Wins
-                    </button>
-                    <button 
-                      onClick={() => resolveBattle(battle.id, battle.defender)}
-                      style={{ flex: 1, padding: 8, background: CLANS[battle.defender]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
-                    >
-                      {CLANS[battle.defender]?.name} Wins
-                    </button>
-                  </div>
+                  {battle.type !== 'bye' && (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => resolveBattle(battle.id, battle.attacker)}
+                        style={{ flex: 1, padding: 8, background: CLANS[battle.attacker]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
+                      >
+                        {CLANS[battle.attacker]?.name} Wins
+                      </button>
+                      <button 
+                        onClick={() => resolveBattle(battle.id, battle.defender)}
+                        style={{ flex: 1, padding: 8, background: CLANS[battle.defender]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
+                      >
+                        {CLANS[battle.defender]?.name} Wins
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
               
