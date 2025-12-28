@@ -309,8 +309,16 @@ export default function SengokuMap() {
 
   const sortedPaths = [...pathData].sort((a, b) => {
     const pA = PATH_TO_PROVINCE[a.index], pB = PATH_TO_PROVINCE[b.index];
+    const ownerA = provinces[pA]?.owner, ownerB = provinces[pB]?.owner;
+    const unclaimedA = ownerA === 'uncontrolled', unclaimedB = ownerB === 'uncontrolled';
     const selA = pA === selected || pA === selectedArmy, selB = pB === selected || pB === selectedArmy;
     const hovA = hovered === pA, hovB = hovered === pB;
+    
+    // Unclaimed always render first (behind everything)
+    if (unclaimedA && !unclaimedB) return -1;
+    if (unclaimedB && !unclaimedA) return 1;
+    
+    // Then selected/hovered on top
     if (selA && !selB) return 1;
     if (selB && !selA) return -1;
     if (hovA && !hovB) return 1;
