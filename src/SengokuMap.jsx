@@ -474,12 +474,30 @@ export default function SengokuMap() {
             );
           })}
 
-          {/* LAYER 2: First crosshatch borders (forward order) - pattern: / / / */}
+          {/* LAYER 2: First crosshatch borders (forward order) - unclaimed first, then claimed */}
+          {/* Unclaimed provinces first (bottom) */}
           {sortedPaths.map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
-            const isUnclaimed = !owner || owner === 'uncontrolled';
-            const border = isUnclaimed ? '#4a4a4a' : CLANS[owner]?.color;
+            if (owner && owner !== 'uncontrolled') return null; // Skip claimed
+            return (
+              <path
+                key={`hatch1-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke="#4a4a4a"
+                strokeWidth="2"
+                strokeDasharray="6,4"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+          {/* Claimed provinces (on top of unclaimed) */}
+          {sortedPaths.map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            if (!owner || owner === 'uncontrolled') return null; // Skip unclaimed
+            const border = CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
@@ -488,19 +506,37 @@ export default function SengokuMap() {
                 fill="none"
                 stroke={border}
                 strokeWidth="2"
-                strokeDasharray="5,5"
-                strokeOpacity="1"
+                strokeDasharray="6,4"
                 style={{ pointerEvents: 'none' }}
               />
             );
           })}
 
-          {/* LAYER 3: Second crosshatch borders (reverse order) - fills gaps */}
+          {/* LAYER 3: Second crosshatch borders (reverse order) - fills gaps with overlap */}
+          {/* Unclaimed provinces first (bottom) */}
           {[...sortedPaths].reverse().map(path => {
             const provId = PATH_TO_PROVINCE[path.index];
             const owner = provId && provinces[provId]?.owner;
-            const isUnclaimed = !owner || owner === 'uncontrolled';
-            const border = isUnclaimed ? '#4a4a4a' : CLANS[owner]?.color;
+            if (owner && owner !== 'uncontrolled') return null; // Skip claimed
+            return (
+              <path
+                key={`hatch2-${path.index}`}
+                d={path.d}
+                fill="none"
+                stroke="#4a4a4a"
+                strokeWidth="2"
+                strokeDasharray="6,4"
+                strokeDashoffset="5"
+                style={{ pointerEvents: 'none' }}
+              />
+            );
+          })}
+          {/* Claimed provinces (on top of unclaimed) */}
+          {[...sortedPaths].reverse().map(path => {
+            const provId = PATH_TO_PROVINCE[path.index];
+            const owner = provId && provinces[provId]?.owner;
+            if (!owner || owner === 'uncontrolled') return null; // Skip unclaimed
+            const border = CLANS[owner]?.color;
             if (!border) return null;
             return (
               <path
@@ -509,9 +545,8 @@ export default function SengokuMap() {
                 fill="none"
                 stroke={border}
                 strokeWidth="2"
-                strokeDasharray="5,5"
+                strokeDasharray="6,4"
                 strokeDashoffset="5"
-                strokeOpacity="1"
                 style={{ pointerEvents: 'none' }}
               />
             );
