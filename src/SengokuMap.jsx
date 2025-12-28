@@ -794,6 +794,9 @@ export default function SengokuMap() {
             if (!prov) return null;
             const owned = prov.owner !== 'uncontrolled';
             
+            // Check if there's an active battle at this province
+            const battle = activeBattles.find(b => b.province === provId);
+            
             // Manual position offsets for specific provinces
             const labelOffsets = {
               buzen: { x: 0, y: 8 },      // Move south
@@ -812,8 +815,30 @@ export default function SengokuMap() {
             
             return (
               <g key={provId} style={{ pointerEvents: 'none' }}>
-                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
-                {owned && prov.armies > 0 && (
+                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0) - (battle ? 10 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
+                
+                {/* Active Battle Indicator - show both armies clashing */}
+                {battle && (
+                  <g>
+                    {/* Battle crossed swords icon */}
+                    <text x={cx} y={cy - (isZoomedIn ? 2 : 8)} textAnchor="middle" dominantBaseline="middle" fontSize="10" style={{ filter: 'drop-shadow(0 0 2px #000)' }}>⚔️</text>
+                    
+                    {/* Attacker banner (left) */}
+                    <g>
+                      <path d={`M${cx - 18} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.attacker]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                      <text x={cx - 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.attackerArmies}</text>
+                    </g>
+                    
+                    {/* Defender banner (right) */}
+                    <g>
+                      <path d={`M${cx + 6} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.defender]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                      <text x={cx + 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.defenderArmies}</text>
+                    </g>
+                  </g>
+                )}
+                
+                {/* Normal army banner (only if no battle) */}
+                {!battle && owned && prov.armies > 0 && (
                   <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }} style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
                     <path d={`M${cx - 6} ${cy + (isZoomedIn ? 2 : -4)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[prov.owner]?.color} stroke={prov.owner === clan ? S.gold : '#000'} strokeWidth="1" filter="url(#shadow)" />
                     <text x={cx} y={cy + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{prov.armies}</text>
