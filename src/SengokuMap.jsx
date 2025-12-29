@@ -205,10 +205,30 @@ export default function SengokuMap() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeBattles, setActiveBattles] = useState([]);
   const [pendingAttacks, setPendingAttacks] = useState([]);
-  const [pendingLevies, setPendingLevies] = useState([]); // { id, province, clan }
+  const [pendingLevies, setPendingLevies] = useState([]);
   const [lastProcessedPhase, setLastProcessedPhase] = useState(null);
   const [moveLog, setMoveLog] = useState([]);
   const [armySplitCount, setArmySplitCount] = useState(1);
+  const [weekHistory, setWeekHistory] = useState([]); // Array of { week, events: [] }
+  const [showHistory, setShowHistory] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+
+  // Helper to add event to current week's history
+  const addHistoryEvent = (event) => {
+    setWeekHistory(prev => {
+      const updated = [...prev];
+      const currentWeekIdx = updated.findIndex(w => w.week === week);
+      if (currentWeekIdx >= 0) {
+        updated[currentWeekIdx] = {
+          ...updated[currentWeekIdx],
+          events: [...updated[currentWeekIdx].events, { ...event, timestamp: Date.now() }]
+        };
+      } else {
+        updated.push({ week, events: [{ ...event, timestamp: Date.now() }] });
+      }
+      return updated;
+    });
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -230,6 +250,14 @@ export default function SengokuMap() {
               ...newProvinces[levy.province],
               armies: newProvinces[levy.province].armies + 1
             };
+            // Add history event for levy
+            addHistoryEvent({
+              type: 'levy',
+              icon: '🚩',
+              text: `${CLANS[levy.clan]?.name} raised levy in ${PROVINCE_DATA[levy.province]?.name}`,
+              clan: levy.clan,
+              province: levy.province,
+            });
           }
         });
         setProvinces(newProvinces);
@@ -771,13 +799,14 @@ export default function SengokuMap() {
         if (s.pendingLevies) setPendingLevies(s.pendingLevies);
         if (s.lastProcessedPhase) setLastProcessedPhase(s.lastProcessedPhase);
         if (s.moveLog) setMoveLog(s.moveLog);
+        if (s.weekHistory) setWeekHistory(s.weekHistory);
       } catch (e) {}
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog }));
-  }, [provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog]);
+    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog, weekHistory }));
+  }, [provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog, weekHistory]);
 
   const resolveBattle = (battleId, winner) => {
     const battle = activeBattles.find(b => b.id === battleId);
@@ -1049,6 +1078,46 @@ export default function SengokuMap() {
       }
     }
     
+    // Add history event for battle result
+    if (battle.type === 'collision') {
+      addHistoryEvent({
+        type: 'collision',
+        icon: '⚔️',
+        text: `${CLANS[winner]?.name} and ${CLANS[loser]?.name} clash - ${CLANS[winner]?.name} wins`,
+        winner,
+        loser,
+      });
+    } else if (battle.type === 'attack') {
+      if (winner === battle.attacker) {
+        addHistoryEvent({
+          type: 'conquest',
+          icon: '🏆',
+          text: `${CLANS[winner]?.name} defeats ${CLANS[loser]?.name} for ${PROVINCE_DATA[battle.province]?.name}`,
+          winner,
+          loser,
+          province: battle.province,
+        });
+      } else {
+        addHistoryEvent({
+          type: 'defense',
+          icon: '🛡️',
+          text: `${CLANS[winner]?.name} defends ${PROVINCE_DATA[battle.province]?.name} from ${CLANS[loser]?.name}`,
+          winner,
+          loser,
+          province: battle.province,
+        });
+      }
+    } else if (battle.type === 'elimination') {
+      addHistoryEvent({
+        type: 'elimination',
+        icon: '⚔️',
+        text: `${CLANS[winner]?.name} defeats ${CLANS[loser]?.name} in bracket for ${PROVINCE_DATA[battle.bracketTarget]?.name}`,
+        winner,
+        loser,
+        province: battle.bracketTarget,
+      });
+    }
+    
     setProvinces(newProvinces);
     setActiveBattles(newBattles);
     setPendingAttacks(newPendingAttacks);
@@ -1085,6 +1154,33 @@ export default function SengokuMap() {
   };
 
   const handleMouseUp = () => setIsPanning(false);
+
+  // Advance to next week
+  const advanceWeek = () => {
+    // Ensure current week has a history entry
+    const currentWeekHistory = weekHistory.find(w => w.week === week);
+    if (!currentWeekHistory) {
+      setWeekHistory(prev => [...prev, { week, events: [] }]);
+    }
+    
+    // Clear current week state
+    setMoveLog([]);
+    setActiveBattles([]);
+    setPendingAttacks([]);
+    setPendingMoves([]);
+    setCommittedMoves([]);
+    
+    // Increment week
+    setWeek(prev => prev + 1);
+    setLastProcessedPhase(null);
+    
+    // Add week start event to new week
+    addHistoryEvent({
+      type: 'weekstart',
+      icon: '📅',
+      text: `Week ${week + 1} begins`,
+    });
+  };
 
   const getColor = (provId) => CLANS[provinces[provId]?.owner]?.color || '#5c5347';
 
@@ -1232,14 +1328,201 @@ export default function SengokuMap() {
           </div>
         </div>
 
-        {/* Zoom */}
+        {/* Zoom + History + Dashboard */}
         <div className="absolute top-24 right-4 z-20 flex flex-col gap-1">
           {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) })) },
             { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) })) },
             { l: '◯', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }) }].map((b, i) => (
             <button key={i} onClick={b.a} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
           ))}
+          <button onClick={() => { setShowDashboard(!showDashboard); setShowHistory(false); }} style={{ width: 32, height: 32, background: showDashboard ? CLANS[clan]?.color : S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 14, marginTop: 8 }} title="Clan Dashboard">🏯</button>
+          <button onClick={() => { setShowHistory(!showHistory); setShowDashboard(false); }} style={{ width: 32, height: 32, background: showHistory ? S.gold : S.woodMid, border: `1px solid ${S.woodLight}`, color: showHistory ? S.woodDark : S.parchment, fontSize: 14 }} title="History">📜</button>
         </div>
+
+        {/* Clan Dashboard Panel */}
+        {showDashboard && (() => {
+          const clanProvinces = Object.entries(provinces).filter(([_, p]) => p.owner === clan);
+          const totalArmies = clanProvinces.reduce((sum, [_, p]) => sum + (p.armies || 0), 0);
+          const clanPendingLevies = pendingLevies.filter(l => l.clan === clan);
+          const clanMoves = [...pendingMoves.filter(m => m.clan === clan), ...committedMoves.filter(m => m.clan === clan)];
+          const rallyCap = clanData[clan]?.rallyCap || 0;
+          const maxArmies = Math.floor(rallyCap / 20);
+          
+          return (
+            <div className="absolute top-24 left-4 z-20" style={{ width: 340, maxHeight: 'calc(100vh - 200px)', background: S.woodMid, border: `3px solid ${CLANS[clan]?.color}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '12px 16px', borderBottom: `2px solid ${S.woodLight}`, background: `linear-gradient(135deg, ${CLANS[clan]?.color}40, ${S.woodDark})` }}>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 style={{ color: CLANS[clan]?.color, fontSize: '16px', fontWeight: '700' }}>{CLANS[clan]?.name}</h3>
+                    <p style={{ color: S.parchmentDark, fontSize: 10 }}>Clan Dashboard</p>
+                  </div>
+                  <button onClick={() => setShowDashboard(false)} style={{ background: 'none', border: 'none', color: S.parchmentDark, fontSize: 16 }}>×</button>
+                </div>
+              </div>
+              
+              <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+                {/* Summary Stats */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 16 }}>
+                  <div style={{ background: S.woodDark, padding: 12, textAlign: 'center' }}>
+                    <p style={{ color: S.gold, fontSize: 24, fontWeight: '700' }}>{clanProvinces.length}</p>
+                    <p style={{ color: S.parchmentDark, fontSize: 10 }}>Provinces</p>
+                  </div>
+                  <div style={{ background: S.woodDark, padding: 12, textAlign: 'center' }}>
+                    <p style={{ color: S.gold, fontSize: 24, fontWeight: '700' }}>
+                      {totalArmies}
+                      {clanPendingLevies.length > 0 && <span style={{ color: '#4a7c23', fontSize: 14 }}> +{clanPendingLevies.length}</span>}
+                    </p>
+                    <p style={{ color: S.parchmentDark, fontSize: 10 }}>Armies</p>
+                  </div>
+                </div>
+                
+                {/* Rally Capacity */}
+                <div style={{ background: S.woodDark, padding: 12, marginBottom: 16 }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span style={{ color: S.parchment, fontSize: 11 }}>Rally Capacity</span>
+                    <span style={{ color: S.gold, fontSize: 12, fontWeight: '600' }}>{totalArmies + clanPendingLevies.length} / {maxArmies}</span>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', height: 8, borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ width: `${maxArmies > 0 ? (totalArmies / maxArmies) * 100 : 0}%`, height: '100%', background: S.gold }} />
+                    {clanPendingLevies.length > 0 && (
+                      <div style={{ width: `${maxArmies > 0 ? (clanPendingLevies.length / maxArmies) * 100 : 0}%`, height: '100%', background: '#4a7c23', marginTop: -8, marginLeft: `${maxArmies > 0 ? (totalArmies / maxArmies) * 100 : 0}%` }} />
+                    )}
+                  </div>
+                  <p style={{ color: S.parchmentDark, fontSize: 9, marginTop: 4 }}>{rallyCap} men total ({maxArmies} armies max)</p>
+                </div>
+                
+                {/* Provinces List */}
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Your Provinces</p>
+                  {clanProvinces.length === 0 ? (
+                    <p style={{ color: S.parchmentDark, fontSize: 11, fontStyle: 'italic' }}>No provinces owned</p>
+                  ) : (
+                    clanProvinces.map(([provId, prov]) => {
+                      const hasLevyQueued = pendingLevies.some(l => l.province === provId && l.clan === clan);
+                      const canRaiseLevyHere = !hasLevyQueued && (totalArmies + clanPendingLevies.length < maxArmies) && currentPhase.phase === 'PLANNING';
+                      const battle = activeBattles.find(b => b.province === provId);
+                      
+                      return (
+                        <div key={provId} style={{ background: 'rgba(0,0,0,0.2)', padding: 8, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ flex: 1 }}>
+                            <button 
+                              onClick={() => { setSelected(provId); setShowDashboard(false); }}
+                              style={{ background: 'none', border: 'none', color: S.parchment, fontSize: 12, fontWeight: '600', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                            >
+                              {PROVINCE_DATA[provId]?.name}
+                            </button>
+                            {battle && <span style={{ color: S.red, fontSize: 9, marginLeft: 6 }}>⚔️</span>}
+                            {hasLevyQueued && <span style={{ color: '#4a7c23', fontSize: 9, marginLeft: 6 }}>+1 levy</span>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span style={{ color: S.gold, fontWeight: '600', fontSize: 14 }}>{prov.armies}</span>
+                            {canRaiseLevyHere && (
+                              <button 
+                                onClick={() => setPendingLevies([...pendingLevies, { id: Date.now(), province: provId, clan }])}
+                                style={{ background: '#2d5016', border: 'none', color: S.parchment, fontSize: 9, padding: '2px 6px' }}
+                              >
+                                +Levy
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                {/* Pending Orders */}
+                {(clanMoves.length > 0 || clanPendingLevies.length > 0) && (
+                  <div style={{ marginBottom: 16 }}>
+                    <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Pending Orders</p>
+                    
+                    {clanMoves.map(m => (
+                      <div key={m.id} style={{ background: 'rgba(45,80,22,0.2)', padding: 6, marginBottom: 4, fontSize: 10, borderLeft: `2px solid ${m.committedAt ? '#2d5016' : S.gold}` }}>
+                        <span style={{ color: S.parchment }}>
+                          {PROVINCE_DATA[m.from]?.name} → {PROVINCE_DATA[m.to]?.name}
+                          {m.armies > 1 && <span style={{ color: '#4a7c23' }}> ×{m.armies}</span>}
+                        </span>
+                        <span style={{ color: S.parchmentDark, marginLeft: 8 }}>
+                          {m.committedAt ? '✓ committed' : 'pending'}
+                        </span>
+                      </div>
+                    ))}
+                    
+                    {clanPendingLevies.map(l => (
+                      <div key={l.id} style={{ background: 'rgba(45,80,22,0.2)', padding: 6, marginBottom: 4, fontSize: 10, borderLeft: `2px solid #4a7c23` }}>
+                        <span style={{ color: S.parchment }}>🚩 Raise levy at {PROVINCE_DATA[l.province]?.name}</span>
+                        <button 
+                          onClick={() => setPendingLevies(pendingLevies.filter(x => x.id !== l.id))}
+                          style={{ background: S.red, border: 'none', color: S.parchment, fontSize: 8, padding: '1px 4px', marginLeft: 8 }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Active Battles */}
+                {activeBattles.filter(b => b.attacker === clan || b.defender === clan).length > 0 && (
+                  <div>
+                    <p style={{ color: S.red, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Active Battles</p>
+                    {activeBattles.filter(b => b.attacker === clan || b.defender === clan).map(b => (
+                      <div key={b.id} style={{ background: 'rgba(139,0,0,0.2)', padding: 6, marginBottom: 4, fontSize: 10 }}>
+                        <span style={{ color: S.parchment }}>
+                          ⚔️ {PROVINCE_DATA[b.province]?.name}: 
+                          <span style={{ color: CLANS[b.attacker]?.color }}> {CLANS[b.attacker]?.name}</span>
+                          <span style={{ color: S.parchmentDark }}> vs </span>
+                          <span style={{ color: CLANS[b.defender]?.color }}>{CLANS[b.defender]?.name}</span>
+                        </span>
+                        <button 
+                          onClick={() => { setSelected(b.province); setShowDashboard(false); }}
+                          style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 8, padding: '1px 4px', marginLeft: 8 }}
+                        >
+                          View
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* History Panel */}
+        {showHistory && (
+          <div className="absolute top-24 left-4 z-20" style={{ width: 320, maxHeight: 'calc(100vh - 200px)', background: S.woodMid, border: `3px solid ${S.woodLight}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '12px 16px', borderBottom: `2px solid ${S.woodLight}`, background: S.woodDark }}>
+              <div className="flex justify-between items-center">
+                <h3 style={{ color: S.parchment, fontSize: '14px', fontWeight: '600' }}>📜 Chronicle</h3>
+                <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', color: S.parchmentDark, fontSize: 16 }}>×</button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 12 }}>
+              {weekHistory.length === 0 ? (
+                <p style={{ color: S.parchmentDark, fontSize: 11, fontStyle: 'italic' }}>No events recorded yet</p>
+              ) : (
+                [...weekHistory].reverse().map(weekData => (
+                  <div key={weekData.week} style={{ marginBottom: 16 }}>
+                    <div style={{ background: S.woodDark, padding: '6px 10px', marginBottom: 8, borderLeft: `3px solid ${S.gold}` }}>
+                      <span style={{ color: S.gold, fontWeight: '600', fontSize: 12 }}>Week {weekData.week}</span>
+                    </div>
+                    {weekData.events.length === 0 ? (
+                      <p style={{ color: S.parchmentDark, fontSize: 10, fontStyle: 'italic', paddingLeft: 8 }}>No events</p>
+                    ) : (
+                      weekData.events.map((event, idx) => (
+                        <div key={idx} style={{ padding: '4px 8px', borderBottom: `1px solid ${S.woodLight}20`, fontSize: 11 }}>
+                          <span style={{ marginRight: 6 }}>{event.icon}</span>
+                          <span style={{ color: S.parchment }}>{event.text}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Map */}
         <svg ref={svgRef} viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`} className="w-full h-full" style={{ cursor: isPanning ? 'grabbing' : 'default' }}
@@ -2153,13 +2436,28 @@ export default function SengokuMap() {
                     <input 
                       type="number" 
                       value={clanData[provinces[selected].owner]?.rallyCap || 0} 
-                      onChange={e => setClanData({ 
-                        ...clanData, 
-                        [provinces[selected].owner]: { 
-                          ...clanData[provinces[selected].owner], 
-                          rallyCap: parseInt(e.target.value) || 0 
-                        } 
-                      })} 
+                      onChange={e => {
+                        const newValue = parseInt(e.target.value) || 0;
+                        const clanId = provinces[selected].owner;
+                        const oldValue = clanData[clanId]?.rallyCap || 0;
+                        if (newValue !== oldValue) {
+                          setClanData({ 
+                            ...clanData, 
+                            [clanId]: { 
+                              ...clanData[clanId], 
+                              rallyCap: newValue 
+                            } 
+                          });
+                          addHistoryEvent({
+                            type: 'rallycap',
+                            icon: '📜',
+                            text: `${CLANS[clanId]?.name} rally cap changed to ${newValue}`,
+                            clan: clanId,
+                            oldValue,
+                            newValue,
+                          });
+                        }
+                      }} 
                       style={{ flex: 1, padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12 }} 
                       placeholder="Rally Cap (men)" 
                     />
@@ -2184,9 +2482,17 @@ export default function SengokuMap() {
                 >
                   🔄 Toggle Phase → {currentPhase.phase === 'PLANNING' ? 'BATTLE' : 'PLANNING'}
                 </button>
-                <button onClick={() => setWeek(w => w + 1)} style={{ width: '100%', padding: 10, background: `linear-gradient(180deg, ${S.gold} 0%, #8b6914 100%)`, border: 'none', color: S.woodDark, fontSize: 12, fontWeight: '600' }}>
-                  Week {week} → {week + 1}
+                <button 
+                  onClick={advanceWeek} 
+                  style={{ width: '100%', padding: 10, background: `linear-gradient(180deg, ${S.gold} 0%, #8b6914 100%)`, border: 'none', color: S.woodDark, fontSize: 12, fontWeight: '600' }}
+                  disabled={activeBattles.length > 0}
+                  title={activeBattles.length > 0 ? 'Resolve all battles first' : ''}
+                >
+                  📅 Advance to Week {week + 1}
                 </button>
+                {activeBattles.length > 0 && (
+                  <p style={{ color: S.red, fontSize: 9, marginTop: 4 }}>⚠️ Resolve {activeBattles.length} battle(s) first</p>
+                )}
               </div>
             )}
           </div>
