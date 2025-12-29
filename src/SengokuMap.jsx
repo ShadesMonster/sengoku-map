@@ -347,6 +347,7 @@ export default function SengokuMap() {
     });
     
     // STEP 2: Identify standard collisions (A→B and B→A) - these take priority
+    // Allied clans do NOT collide with each other
     const collisions = [];
     const collisionMoveIds = new Set();
     const collisionClans = new Set();
@@ -354,7 +355,8 @@ export default function SengokuMap() {
     movesToProcess.forEach(m => {
       if (collisionMoveIds.has(m.id)) return;
       const opposing = movesToProcess.find(om => 
-        om.from === m.to && om.to === m.from && om.clan !== m.clan && !collisionMoveIds.has(om.id)
+        om.from === m.to && om.to === m.from && om.clan !== m.clan && 
+        !collisionMoveIds.has(om.id) && !areAllied(m.clan, om.clan)
       );
       if (opposing) {
         collisions.push({ move1: m, move2: opposing });
@@ -455,128 +457,130 @@ export default function SengokuMap() {
       
       if (targetProv.owner === 'uncontrolled' && uniqueClans.length > 1) {
         // MULTI-CLAN RUSH ON UNCLAIMED TERRITORY
-        const firstMove = uniqueClans[0];
-        const challengers = uniqueClans.slice(1);
+        // Group clans by alliance blocks
+        const allianceBlocks = [];
+        const assignedClans = new Set();
         
-        // First to commit claims the province
-        const firstArmyCount = firstMove.armies || 1;
-        const sourceProv = newProvinces[firstMove.from];
-        
-        if (sourceProv.armies >= firstArmyCount) {
-          newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armies: firstArmyCount };
-          newProvinces[firstMove.from] = { ...sourceProv, armies: sourceProv.armies - firstArmyCount };
+        uniqueClans.forEach(clanMove => {
+          if (assignedClans.has(clanMove.clan)) return;
           
+          // Find all allies moving to same destination
+          const block = [clanMove];
+          assignedClans.add(clanMove.clan);
+          
+          uniqueClans.forEach(otherMove => {
+            if (!assignedClans.has(otherMove.clan) && areAllied(clanMove.clan, otherMove.clan)) {
+              block.push(otherMove);
+              assignedClans.add(otherMove.clan);
+            }
+          });
+          
+          allianceBlocks.push(block);
+        });
+        
+        if (allianceBlocks.length === 1) {
+          // ALL movers are allied - no conflict, first committer owns
+          const allMoves = allianceBlocks[0];
+          allMoves.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+          const firstMove = allMoves[0];
+          
+          // Total armies from all allied clans
+          let totalArmies = 0;
+          allMoves.forEach(m => {
+            const armyCount = m.armies || 1;
+            const src = newProvinces[m.from];
+            if (src.armies >= armyCount) {
+              totalArmies += armyCount;
+              newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+            }
+          });
+          
+          newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armies: totalArmies };
+          
+          const allyNames = allMoves.map(m => CLANS[m.clan]?.name).join(' and ');
           log.push({
             type: 'claim',
-            text: `✓ ${CLANS[firstMove.clan]?.name} claims ${PROVINCE_DATA[destProvId]?.name} (first to commit)`
+            text: `✓ ${allyNames} claim ${PROVINCE_DATA[destProvId]?.name} - ${CLANS[firstMove.clan]?.name} takes control`
           });
           
-          // Deduct armies from all challengers (handle multiple source provinces per clan)
-          challengers.forEach(m => {
-            if (m.allFroms) {
-              // Multiple sources - deduct from each
-              m.allFroms.forEach((fromProv, idx) => {
-                const src = newProvinces[fromProv];
-                const armyCount = m.allArmyCounts?.[idx] || 1;
-                if (src && src.armies >= armyCount) {
-                  newProvinces[fromProv] = { ...src, armies: src.armies - armyCount };
-                }
-              });
-            } else {
-              // Single source
-              const src = newProvinces[m.from];
-              const armyCount = m.armies || 1;
-              if (src && src.armies >= armyCount) {
-                newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
-              }
-            }
-          });
-          
-          // Create elimination bracket for challengers
-          if (challengers.length === 1) {
-            // Only one challenger - direct battle vs claimer
-            const challenger = challengers[0];
-            battles.push({
-              id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              type: 'attack',
-              battleType: PROVINCE_DATA[destProvId]?.battleType || 'field',
-              province: destProvId,
-              attacker: challenger.clan,
-              defender: firstMove.clan,
-              attackerFrom: challenger.from,
-              attackerArmies: challenger.armies || 1,
-              defenderArmies: firstArmyCount,
-            });
-            
-            log.push({
-              type: 'battle',
-              text: `⚔️ ${CLANS[challenger.clan]?.name} (${challenger.armies || 1}) contests ${CLANS[firstMove.clan]?.name}'s claim on ${PROVINCE_DATA[destProvId]?.name}!`
-            });
-          } else {
-            // Multiple challengers - create elimination bracket
-            // Pair them up for field battles, winner chain continues
-            const bracketBattles = [];
-            
-            // Create pairs (if odd number, last one gets a bye)
-            for (let i = 0; i < challengers.length; i += 2) {
-              if (i + 1 < challengers.length) {
-                // Pair battle
-                const c1 = challengers[i];
-                const c2 = challengers[i + 1];
-                bracketBattles.push({
-                  id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${i}`,
-                  type: 'elimination',
-                  battleType: 'field',
-                  province: destProvId,
-                  attacker: c1.clan,
-                  defender: c2.clan,
-                  attackerFrom: c1.from,
-                  defenderFrom: c2.from,
-                  attackerArmies: c1.armies || 1,
-                  defenderArmies: c2.armies || 1,
-                  bracketRound: 1,
-                  bracketTarget: destProvId,
-                  bracketClaimer: firstMove.clan,
-                  bracketClaimerArmies: firstArmyCount,
-                  chainInfo: {
-                    attackerWinsNext: 'Advances in bracket',
-                    defenderWinsNext: 'Advances in bracket',
-                  }
-                });
-                
-                log.push({
-                  type: 'battle',
-                  text: `⚔️ Elimination: ${CLANS[c1.clan]?.name} vs ${CLANS[c2.clan]?.name} (bracket for ${PROVINCE_DATA[destProvId]?.name})`
-                });
-              } else {
-                // Bye - this challenger waits for bracket winners
-                const byeChallenger = challengers[i];
-                bracketBattles.push({
-                  id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-bye`,
-                  type: 'bye',
-                  battleType: 'field',
-                  province: destProvId,
-                  attacker: byeChallenger.clan,
-                  attackerFrom: byeChallenger.from,
-                  attackerArmies: byeChallenger.armies || 1,
-                  bracketRound: 2,
-                  bracketTarget: destProvId,
-                  bracketClaimer: firstMove.clan,
-                  bracketClaimerArmies: firstArmyCount,
-                });
-                
-                log.push({
-                  type: 'pending',
-                  text: `⏳ ${CLANS[byeChallenger.clan]?.name} gets bye, waits for bracket results`
-                });
-              }
-            }
-            
-            battles.push(...bracketBattles);
-          }
+          uniqueClans.forEach(m => processedMoveIds.add(m.id));
+          return; // Skip rest of processing for this destination
         }
         
-        // Mark all these moves as processed
+        // Multiple alliance blocks - first block claims, others contest
+        // Sort blocks by earliest commit time
+        allianceBlocks.sort((a, b) => {
+          const aEarliest = Math.min(...a.map(m => m.committedAt || Infinity));
+          const bEarliest = Math.min(...b.map(m => m.committedAt || Infinity));
+          return aEarliest - bEarliest;
+        });
+        
+        const claimingBlock = allianceBlocks[0];
+        const challengingBlocks = allianceBlocks.slice(1);
+        
+        // First block claims
+        claimingBlock.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+        const firstMove = claimingBlock[0];
+        
+        let claimingArmies = 0;
+        claimingBlock.forEach(m => {
+          const armyCount = m.armies || 1;
+          const src = newProvinces[m.from];
+          if (src.armies >= armyCount) {
+            claimingArmies += armyCount;
+            newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+          }
+        });
+        
+        newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armies: claimingArmies };
+        
+        const claimingNames = claimingBlock.map(m => CLANS[m.clan]?.name).join(' and ');
+        log.push({
+          type: 'claim',
+          text: `✓ ${claimingNames} claim ${PROVINCE_DATA[destProvId]?.name} (first to commit)`
+        });
+        
+        // Challenging blocks attack (combined if allied)
+        challengingBlocks.forEach((block, blockIdx) => {
+          let challengingArmies = 0;
+          const challengerClans = [];
+          
+          block.forEach(m => {
+            const armyCount = m.armies || 1;
+            const src = newProvinces[m.from];
+            if (src.armies >= armyCount) {
+              challengingArmies += armyCount;
+              newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+            }
+            challengerClans.push(m.clan);
+          });
+          
+          // Sort by commit time for ownership
+          block.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+          const primaryChallenger = block[0];
+          
+          battles.push({
+            id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${blockIdx}`,
+            type: 'attack',
+            battleType: PROVINCE_DATA[destProvId]?.battleType || 'field',
+            province: destProvId,
+            attacker: primaryChallenger.clan,
+            attackerAllies: challengerClans.filter(c => c !== primaryChallenger.clan),
+            defender: firstMove.clan,
+            defenderAllies: claimingBlock.filter(m => m.clan !== firstMove.clan).map(m => m.clan),
+            attackerFrom: primaryChallenger.from,
+            attackerArmies: challengingArmies,
+            defenderArmies: claimingArmies,
+          });
+          
+          const challengerNames = block.map(m => CLANS[m.clan]?.name).join(' and ');
+          log.push({
+            type: 'battle',
+            text: `⚔️ ${challengerNames} (${challengingArmies}) contest ${claimingNames}'s claim on ${PROVINCE_DATA[destProvId]?.name}!`
+          });
+        });
+        
+        // Mark all as processed
         uniqueClans.forEach(m => processedMoveIds.add(m.id));
         
       } else if (targetProv.owner !== 'uncontrolled' && uniqueClans.length > 1) {
@@ -602,72 +606,153 @@ export default function SengokuMap() {
         }
         
         if (attackers.length > 0) {
-          // Sort attackers by commit time
-          attackers.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+          // Group attackers by alliance blocks
+          const attackerBlocks = [];
+          const assignedAttackers = new Set();
           
-          const firstAttacker = attackers[0];
-          const waitingAttackers = attackers.slice(1);
-          
-          // Deduct armies from all attackers
-          attackers.forEach(m => {
-            if (m.allFroms) {
-              m.allFroms.forEach((fromProv, idx) => {
-                const src = newProvinces[fromProv];
-                const armyCount = m.allArmyCounts?.[idx] || 1;
-                if (src && src.armies >= armyCount) {
-                  newProvinces[fromProv] = { ...src, armies: src.armies - armyCount };
-                }
-              });
-            } else {
-              const src = newProvinces[m.from];
-              const armyCount = m.armies || 1;
-              if (src && src.armies >= armyCount) {
-                newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+          attackers.forEach(attacker => {
+            if (assignedAttackers.has(attacker.clan)) return;
+            
+            const block = [attacker];
+            assignedAttackers.add(attacker.clan);
+            
+            attackers.forEach(other => {
+              if (!assignedAttackers.has(other.clan) && areAllied(attacker.clan, other.clan)) {
+                block.push(other);
+                assignedAttackers.add(other.clan);
               }
-            }
-          });
-          
-          // First attacker fights defender
-          const battleType = PROVINCE_DATA[destProvId]?.battleType || 'field';
-          
-          // Build chain info
-          const nextInLine = waitingAttackers[0];
-          const chainInfo = nextInLine ? {
-            attackerWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name} (${nextInLine.armies})`,
-            defenderWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name} (${nextInLine.armies})`,
-          } : null;
-          
-          battles.push({
-            id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            type: 'attack',
-            battleType: battleType,
-            province: destProvId,
-            attacker: firstAttacker.clan,
-            defender: targetProv.owner,
-            attackerFrom: firstAttacker.from,
-            attackerArmies: firstAttacker.armies || 1,
-            defenderArmies: targetProv.armies,
-            chainInfo: chainInfo,
-            // Store waiting attackers for chain resolution
-            waitingAttackers: waitingAttackers.map(w => ({
-              clan: w.clan,
-              from: w.from,
-              armies: w.armies || 1,
-            })),
-          });
-          
-          log.push({
-            type: 'battle',
-            text: `⚔️ ${CLANS[firstAttacker.clan]?.name} (${firstAttacker.armies || 1}) attacks ${CLANS[targetProv.owner]?.name} (${targetProv.armies}) at ${PROVINCE_DATA[destProvId]?.name} (first to commit)`
-          });
-          
-          // Log waiting attackers
-          waitingAttackers.forEach(w => {
-            log.push({
-              type: 'pending',
-              text: `⏳ ${CLANS[w.clan]?.name} (${w.armies || 1}) waiting to fight winner at ${PROVINCE_DATA[destProvId]?.name}`
             });
+            
+            attackerBlocks.push(block);
           });
+          
+          // Sort blocks by earliest commit time
+          attackerBlocks.sort((a, b) => {
+            const aEarliest = Math.min(...a.map(m => m.committedAt || Infinity));
+            const bEarliest = Math.min(...b.map(m => m.committedAt || Infinity));
+            return aEarliest - bEarliest;
+          });
+          
+          // Check if defender is allied with any attacker
+          const defenderAllies = attackerBlocks.find(block => 
+            block.some(m => areAllied(m.clan, targetProv.owner))
+          );
+          
+          if (defenderAllies) {
+            // Can't attack your ally! Treat as reinforcement
+            defenderAllies.forEach(m => {
+              const armyCount = m.armies || 1;
+              const src = newProvinces[m.from];
+              if (src.armies >= armyCount) {
+                newProvinces[destProvId] = { ...newProvinces[destProvId], armies: newProvinces[destProvId].armies + armyCount };
+                newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+                log.push({
+                  type: 'reinforce',
+                  text: `${CLANS[m.clan]?.name} reinforces ally ${CLANS[targetProv.owner]?.name} at ${PROVINCE_DATA[destProvId]?.name} (+${armyCount})`
+                });
+              }
+            });
+            // Remove this block from attackers
+            const idx = attackerBlocks.indexOf(defenderAllies);
+            if (idx > -1) attackerBlocks.splice(idx, 1);
+          }
+          
+          if (attackerBlocks.length > 0) {
+            // First alliance block attacks, others wait
+            const firstBlock = attackerBlocks[0];
+            const waitingBlocks = attackerBlocks.slice(1);
+            
+            // Sort first block by commit time for ownership
+            firstBlock.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+            const primaryAttacker = firstBlock[0];
+            
+            // Deduct and combine armies from first block
+            let combinedArmies = 0;
+            const alliedClans = [];
+            
+            firstBlock.forEach(m => {
+              if (m.allFroms) {
+                m.allFroms.forEach((fromProv, idx) => {
+                  const src = newProvinces[fromProv];
+                  const armyCount = m.allArmyCounts?.[idx] || 1;
+                  if (src && src.armies >= armyCount) {
+                    combinedArmies += armyCount;
+                    newProvinces[fromProv] = { ...src, armies: src.armies - armyCount };
+                  }
+                });
+              } else {
+                const src = newProvinces[m.from];
+                const armyCount = m.armies || 1;
+                if (src && src.armies >= armyCount) {
+                  combinedArmies += armyCount;
+                  newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+                }
+              }
+              if (m.clan !== primaryAttacker.clan) alliedClans.push(m.clan);
+            });
+            
+            // Deduct armies from waiting blocks too
+            const waitingAttackers = [];
+            waitingBlocks.forEach(block => {
+              block.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+              const blockPrimary = block[0];
+              let blockArmies = 0;
+              const blockAllies = [];
+              
+              block.forEach(m => {
+                const src = newProvinces[m.from];
+                const armyCount = m.armies || 1;
+                if (src && src.armies >= armyCount) {
+                  blockArmies += armyCount;
+                  newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+                }
+                if (m.clan !== blockPrimary.clan) blockAllies.push(m.clan);
+              });
+              
+              waitingAttackers.push({
+                clan: blockPrimary.clan,
+                allies: blockAllies,
+                from: blockPrimary.from,
+                armies: blockArmies,
+              });
+            });
+            
+            const battleType = PROVINCE_DATA[destProvId]?.battleType || 'field';
+            const nextInLine = waitingAttackers[0];
+            const chainInfo = nextInLine ? {
+              attackerWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name}${nextInLine.allies?.length ? ` and allies` : ''} (${nextInLine.armies})`,
+              defenderWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name}${nextInLine.allies?.length ? ` and allies` : ''} (${nextInLine.armies})`,
+            } : null;
+            
+            battles.push({
+              id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              type: 'attack',
+              battleType: battleType,
+              province: destProvId,
+              attacker: primaryAttacker.clan,
+              attackerAllies: alliedClans,
+              defender: targetProv.owner,
+              attackerFrom: primaryAttacker.from,
+              attackerArmies: combinedArmies,
+              defenderArmies: targetProv.armies,
+              chainInfo: chainInfo,
+              waitingAttackers: waitingAttackers,
+            });
+            
+            const attackerNames = [primaryAttacker.clan, ...alliedClans].map(c => CLANS[c]?.name).join(' and ');
+            log.push({
+              type: 'battle',
+              text: `⚔️ ${attackerNames} (${combinedArmies}) attack ${CLANS[targetProv.owner]?.name} (${targetProv.armies}) at ${PROVINCE_DATA[destProvId]?.name}`
+            });
+            
+            waitingAttackers.forEach(w => {
+              const wNames = [w.clan, ...(w.allies || [])].map(c => CLANS[c]?.name).join(' and ');
+              log.push({
+                type: 'pending',
+                text: `⏳ ${wNames} (${w.armies}) waiting to fight winner at ${PROVINCE_DATA[destProvId]?.name}`
+              });
+            });
+          }
         }
         
         // Mark all as processed
@@ -1627,30 +1712,42 @@ export default function SengokuMap() {
                 {/* Send Alliance Request */}
                 <div>
                   <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Diplomacy</p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {otherClans.filter(c => !areAllied(clan, c) && !hasRequestPending(clan, c)).map(otherClan => (
-                      <button 
-                        key={otherClan}
-                        onClick={() => {
-                          setAllianceRequests([...allianceRequests, {
-                            id: Date.now(),
-                            from: clan,
-                            to: otherClan,
-                            timestamp: Date.now(),
-                          }]);
-                        }}
-                        style={{ 
-                          background: S.woodDark, 
-                          border: `1px solid ${CLANS[otherClan]?.color}`, 
-                          color: CLANS[otherClan]?.color, 
-                          fontSize: 9, 
-                          padding: '4px 8px' 
-                        }}
-                      >
-                        Request {CLANS[otherClan]?.name}
-                      </button>
-                    ))}
-                  </div>
+                  {(() => {
+                    const availableClans = otherClans.filter(c => !areAllied(clan, c) && !hasRequestPending(clan, c));
+                    return availableClans.length > 0 ? (
+                      <div className="flex gap-2">
+                        <select 
+                          id="diplomacy-target"
+                          defaultValue=""
+                          style={{ flex: 1, padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 11 }}
+                        >
+                          <option value="" disabled>Select clan...</option>
+                          {availableClans.map(c => (
+                            <option key={c} value={c} style={{ background: S.woodDark }}>{CLANS[c]?.name}</option>
+                          ))}
+                        </select>
+                        <button 
+                          onClick={() => {
+                            const select = document.getElementById('diplomacy-target');
+                            if (select.value) {
+                              setAllianceRequests([...allianceRequests, {
+                                id: Date.now(),
+                                from: clan,
+                                to: select.value,
+                                timestamp: Date.now(),
+                              }]);
+                              select.value = '';
+                            }
+                          }}
+                          style={{ padding: '8px 12px', background: '#2d5016', border: 'none', color: S.parchment, fontSize: 10 }}
+                        >
+                          Send Request
+                        </button>
+                      </div>
+                    ) : (
+                      <p style={{ color: S.parchmentDark, fontSize: 10, fontStyle: 'italic' }}>No clans available</p>
+                    );
+                  })()}
                   {allianceRequests.filter(r => r.from === clan).length > 0 && (
                     <div style={{ marginTop: 8 }}>
                       <p style={{ color: S.parchmentDark, fontSize: 9, marginBottom: 4 }}>Pending sent:</p>
@@ -2504,7 +2601,12 @@ export default function SengokuMap() {
                           <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{battle.attackerArmies}</span>
                         </div>
                         <p style={{ color: CLANS[battle.attacker]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[battle.attacker]?.name}</p>
-                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Attacker</p>
+                        {battle.attackerAllies?.length > 0 && (
+                          <p style={{ color: S.parchmentDark, fontSize: 9 }}>
+                            + {battle.attackerAllies.map(a => CLANS[a]?.name).join(', ')}
+                          </p>
+                        )}
+                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Attacker{battle.attackerAllies?.length > 0 ? 's' : ''}</p>
                       </div>
                       
                       <span style={{ color: S.gold, fontSize: 20 }}>VS</span>
@@ -2514,7 +2616,12 @@ export default function SengokuMap() {
                           <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{battle.defenderArmies}</span>
                         </div>
                         <p style={{ color: CLANS[battle.defender]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[battle.defender]?.name}</p>
-                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Defender</p>
+                        {battle.defenderAllies?.length > 0 && (
+                          <p style={{ color: S.parchmentDark, fontSize: 9 }}>
+                            + {battle.defenderAllies.map(a => CLANS[a]?.name).join(', ')}
+                          </p>
+                        )}
+                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Defender{battle.defenderAllies?.length > 0 ? 's' : ''}</p>
                       </div>
                     </div>
                     
@@ -2587,6 +2694,49 @@ export default function SengokuMap() {
               <button onClick={() => startArmyMove(selected)} style={{ width: '100%', padding: 12, background: 'linear-gradient(180deg, #3d6b1e 0%, #2d5016 100%)', border: `2px solid #4a7c23`, color: S.parchment, fontSize: 14, fontWeight: '600', marginBottom: 16 }}>
                 進軍 Move Army
               </button>
+            )}
+            
+            {/* Gift Land to Ally */}
+            {provinces[selected].owner === clan && getAllies(clan).length > 0 && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 6 }}>🎁 GIFT PROVINCE TO ALLY</p>
+                <div className="flex gap-2">
+                  <select 
+                    id="gift-target-select"
+                    defaultValue=""
+                    style={{ flex: 1, padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 11 }}
+                  >
+                    <option value="" disabled>Select ally...</option>
+                    {getAllies(clan).map(allyId => (
+                      <option key={allyId} value={allyId} style={{ background: S.woodDark }}>{CLANS[allyId]?.name}</option>
+                    ))}
+                  </select>
+                  <button 
+                    onClick={() => {
+                      const select = document.getElementById('gift-target-select');
+                      if (select.value) {
+                        const recipient = select.value;
+                        setProvinces({ 
+                          ...provinces, 
+                          [selected]: { ...provinces[selected], owner: recipient } 
+                        });
+                        addHistoryEvent({
+                          type: 'gift',
+                          icon: '🎁',
+                          text: `${CLANS[clan]?.name} gifts ${PROVINCE_DATA[selected]?.name} to ${CLANS[recipient]?.name}`,
+                          from: clan,
+                          to: recipient,
+                          province: selected,
+                        });
+                        select.value = '';
+                      }
+                    }}
+                    style={{ padding: '8px 12px', background: S.gold, border: 'none', color: S.woodDark, fontSize: 10, fontWeight: '600' }}
+                  >
+                    Gift
+                  </button>
+                </div>
+              </div>
             )}
 
             <div style={{ marginBottom: 16 }}>
