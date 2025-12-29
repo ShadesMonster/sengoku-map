@@ -1492,9 +1492,13 @@ export default function SengokuMap() {
             });
             const hasMultipleContestants = contestingClans.size > 0;
             
+            // Get waiting attackers from any battle at this province
+            const battleWithQueue = activeBattles.find(b => b.province === provId && b.waitingAttackers?.length > 0);
+            const waitingAttackersList = battleWithQueue?.waitingAttackers || [];
+            
             return (
               <g key={provId} style={{ pointerEvents: 'none' }}>
-                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0) - (battle || pending || hasMultipleContestants ? 10 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
+                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0) - (battle || pending || hasMultipleContestants || waitingAttackersList.length > 0 ? 10 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
                 
                 {/* Active Battle Indicator - show both armies clashing */}
                 {battle && battle.type !== 'bye' && (
@@ -1516,9 +1520,10 @@ export default function SengokuMap() {
                       </g>
                     )}
                     
-                    {/* Show waiting armies below if there's a bracket */}
-                    {bracketArmies.length > 1 && (
+                    {/* Show waiting armies below - from bracket OR from waitingAttackers queue */}
+                    {(bracketArmies.length > 1 || waitingAttackersList.length > 0) && (
                       <g>
+                        {/* Bracket waiting armies */}
                         {Array.from(contestingClans).filter(c => c !== battle.attacker && c !== battle.defender).map((clanId, idx) => {
                           const armyData = bracketArmies.find(b => b.attacker === clanId || b.defender === clanId);
                           const armies = armyData?.attacker === clanId ? armyData.attackerArmies : armyData?.defenderArmies;
@@ -1526,6 +1531,16 @@ export default function SengokuMap() {
                             <g key={clanId}>
                               <path d={`M${cx - 18 + (idx * 14)} ${cy + (isZoomedIn ? 20 : 14)} h10 v6 l-2.5 -1.5 l-2.5 1.5 l-2.5 -1.5 l-2.5 1.5 v-6 z`} fill={CLANS[clanId]?.color} stroke={S.gold} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.7" />
                               <text x={cx - 13 + (idx * 14)} y={cy + (isZoomedIn ? 24 : 18)} textAnchor="middle" dominantBaseline="middle" fontSize="5" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{armies || '?'}</text>
+                            </g>
+                          );
+                        })}
+                        {/* Queue waiting attackers */}
+                        {waitingAttackersList.map((w, idx) => {
+                          const offsetIdx = idx + contestingClans.size - 2; // Offset by bracket armies already shown
+                          return (
+                            <g key={`wait-${w.clan}-${idx}`}>
+                              <path d={`M${cx - 18 + (offsetIdx * 14)} ${cy + (isZoomedIn ? 20 : 14)} h10 v6 l-2.5 -1.5 l-2.5 1.5 l-2.5 -1.5 l-2.5 1.5 v-6 z`} fill={CLANS[w.clan]?.color} stroke={S.gold} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.7" />
+                              <text x={cx - 13 + (offsetIdx * 14)} y={cy + (isZoomedIn ? 24 : 18)} textAnchor="middle" dominantBaseline="middle" fontSize="5" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{w.armies}</text>
                             </g>
                           );
                         })}
@@ -1838,6 +1853,112 @@ export default function SengokuMap() {
                 </div>
               </div>
             )}
+
+            {/* Active Battle at this Province */}
+            {(() => {
+              const battle = activeBattles.find(b => b.province === selected && b.type !== 'bye');
+              const pendingHere = pendingAttacks.find(p => p.to === selected);
+              
+              if (battle) {
+                return (
+                  <div style={{ background: 'rgba(139,0,0,0.3)', border: `2px solid ${S.red}`, padding: 16, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                      <span style={{ fontSize: 20 }}>⚔️</span>
+                      <div>
+                        <p style={{ color: S.red, fontWeight: '600', fontSize: 14 }}>BATTLE IN PROGRESS</p>
+                        <p style={{ color: S.parchmentDark, fontSize: 10 }}>
+                          {battle.type === 'collision' ? 'Meeting Engagement' : 
+                           battle.type === 'elimination' ? `Elimination Round ${battle.bracketRound || 1}` :
+                           'Assault'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Combatants */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ width: 40, height: 40, background: CLANS[battle.attacker]?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #000', margin: '0 auto 4px' }}>
+                          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{battle.attackerArmies}</span>
+                        </div>
+                        <p style={{ color: CLANS[battle.attacker]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[battle.attacker]?.name}</p>
+                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Attacker</p>
+                      </div>
+                      
+                      <span style={{ color: S.gold, fontSize: 20 }}>VS</span>
+                      
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ width: 40, height: 40, background: CLANS[battle.defender]?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #000', margin: '0 auto 4px' }}>
+                          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{battle.defenderArmies}</span>
+                        </div>
+                        <p style={{ color: CLANS[battle.defender]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[battle.defender]?.name}</p>
+                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Defender</p>
+                      </div>
+                    </div>
+                    
+                    {/* Battle Type */}
+                    <div style={{ background: 'rgba(0,0,0,0.2)', padding: 8, marginBottom: 8 }}>
+                      <p style={{ color: S.gold, fontSize: 11 }}>
+                        {BATTLE_TYPES[battle.battleType]?.icon} {BATTLE_TYPES[battle.battleType]?.name}
+                      </p>
+                      <p style={{ color: S.parchmentDark, fontSize: 9 }}>{BATTLE_TYPES[battle.battleType]?.desc}</p>
+                    </div>
+                    
+                    {/* Chain Info */}
+                    {battle.chainInfo && (
+                      <div style={{ background: 'rgba(184,134,11,0.2)', padding: 8, marginBottom: 8, fontSize: 10 }}>
+                        <p style={{ color: S.gold, fontWeight: '600', marginBottom: 4 }}>Next:</p>
+                        <p style={{ color: CLANS[battle.attacker]?.color }}>If {CLANS[battle.attacker]?.name} wins → {battle.chainInfo.attackerWinsNext}</p>
+                        <p style={{ color: CLANS[battle.defender]?.color }}>If {CLANS[battle.defender]?.name} wins → {battle.chainInfo.defenderWinsNext}</p>
+                      </div>
+                    )}
+                    
+                    {/* Waiting Queue */}
+                    {battle.waitingAttackers && battle.waitingAttackers.length > 0 && (
+                      <div style={{ background: 'rgba(139,0,0,0.2)', padding: 8, marginBottom: 8, fontSize: 10 }}>
+                        <p style={{ color: S.red, fontWeight: '600', marginBottom: 4 }}>⏳ Queue:</p>
+                        {battle.waitingAttackers.map((w, idx) => (
+                          <p key={idx} style={{ color: CLANS[w.clan]?.color }}>{idx + 1}. {CLANS[w.clan]?.name} ({w.armies})</p>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Admin: Resolve buttons */}
+                    {admin && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <button 
+                          onClick={() => resolveBattle(battle.id, battle.attacker)}
+                          style={{ flex: 1, padding: 10, background: CLANS[battle.attacker]?.color, border: 'none', color: '#fff', fontSize: 11, fontWeight: '600' }}
+                        >
+                          {CLANS[battle.attacker]?.name} Wins
+                        </button>
+                        <button 
+                          onClick={() => resolveBattle(battle.id, battle.defender)}
+                          style={{ flex: 1, padding: 10, background: CLANS[battle.defender]?.color, border: 'none', color: '#fff', fontSize: 11, fontWeight: '600' }}
+                        >
+                          {CLANS[battle.defender]?.name} Wins
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              } else if (pendingHere) {
+                return (
+                  <div style={{ background: 'rgba(184,134,11,0.2)', border: `2px solid ${S.gold}`, padding: 16, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 20 }}>⏳</span>
+                      <div>
+                        <p style={{ color: S.gold, fontWeight: '600', fontSize: 14 }}>ARMY WAITING</p>
+                        <p style={{ color: S.parchmentDark, fontSize: 10 }}>Pending battle result</p>
+                      </div>
+                    </div>
+                    <p style={{ color: S.parchment, fontSize: 12 }}>
+                      <span style={{ color: CLANS[pendingHere.clan]?.color, fontWeight: '600' }}>{CLANS[pendingHere.clan]?.name}</span> ({pendingHere.armies}) waiting for <span style={{ color: CLANS[pendingHere.waitingFor]?.color, fontWeight: '600' }}>{CLANS[pendingHere.waitingFor]?.name}</span> to return
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {provinces[selected].owner === clan && provinces[selected].armies > 0 && currentPhase.phase === 'PLANNING' && (
               <button onClick={() => startArmyMove(selected)} style={{ width: '100%', padding: 12, background: 'linear-gradient(180deg, #3d6b1e 0%, #2d5016 100%)', border: `2px solid #4a7c23`, color: S.parchment, fontSize: 14, fontWeight: '600', marginBottom: 16 }}>
