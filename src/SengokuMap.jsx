@@ -677,6 +677,10 @@ export default function SengokuMap() {
             block.some(m => areAllied(m.clan, targetProv.owner))
           );
           
+          // Track defender allies for battle display
+          const defenderAllyClans = [];
+          const defenderArmyBreakdown = [];
+          
           if (defenderAllies) {
             // Can't attack your ally! Treat as reinforcement
             defenderAllies.forEach(m => {
@@ -686,6 +690,8 @@ export default function SengokuMap() {
               if (available >= armyCount) {
                 newProvinces[destProvId] = addArmiesToProvince(newProvinces[destProvId], m.clan, armyCount);
                 newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
+                defenderAllyClans.push(m.clan);
+                defenderArmyBreakdown.push({ clan: m.clan, armies: armyCount });
                 log.push({
                   type: 'reinforce',
                   text: `${CLANS[m.clan]?.name} reinforces ally ${CLANS[targetProv.owner]?.name} at ${PROVINCE_DATA[destProvId]?.name} (+${armyCount})`
@@ -695,6 +701,15 @@ export default function SengokuMap() {
             // Remove this block from attackers
             const idx = attackerBlocks.indexOf(defenderAllies);
             if (idx > -1) attackerBlocks.splice(idx, 1);
+          }
+          
+          // Refresh targetProv after reinforcements
+          targetProv = newProvinces[destProvId];
+          
+          // Add defender's own armies to breakdown
+          const defenderOwnArmies = getClanArmies(targetProv, targetProv.owner);
+          if (defenderOwnArmies > 0) {
+            defenderArmyBreakdown.unshift({ clan: targetProv.owner, armies: defenderOwnArmies });
           }
           
           if (attackerBlocks.length > 0) {
@@ -783,6 +798,8 @@ export default function SengokuMap() {
               attackerAllies: alliedClans,
               attackerArmyBreakdown: attackerArmyBreakdown, // Individual army counts per clan
               defender: targetProv.owner,
+              defenderAllies: defenderAllyClans,
+              defenderArmyBreakdown: defenderArmyBreakdown.length > 0 ? defenderArmyBreakdown : null,
               attackerFrom: primaryAttacker.from,
               attackerArmies: combinedArmies,
               defenderArmies: defenderArmyCount,
@@ -791,9 +808,10 @@ export default function SengokuMap() {
             });
             
             const attackerNames = [primaryAttacker.clan, ...alliedClans].map(c => CLANS[c]?.name).join(' and ');
+            const defenderNames = [targetProv.owner, ...defenderAllyClans].map(c => CLANS[c]?.name).join(' and ');
             log.push({
               type: 'battle',
-              text: `⚔️ ${attackerNames} (${combinedArmies}) attack ${CLANS[targetProv.owner]?.name} (${defenderArmyCount}) at ${PROVINCE_DATA[destProvId]?.name}`
+              text: `⚔️ ${attackerNames} (${combinedArmies}) attack ${defenderNames} (${defenderArmyCount}) at ${PROVINCE_DATA[destProvId]?.name}`
             });
             
             waitingAttackers.forEach(w => {
@@ -1145,17 +1163,41 @@ export default function SengokuMap() {
         }
       } else {
         // Defender wins - keeps province, attacker army destroyed
-        newProvinces[battle.province] = { 
-          ...newProvinces[battle.province], 
-          armyPresence: [{ clan: battle.defender, count: winnerArmies }]
-        };
-        const attackerNames = battle.attackerArmyBreakdown 
-          ? battle.attackerArmyBreakdown.map(b => CLANS[b.clan]?.name).join(' and ')
-          : CLANS[battle.attacker]?.name;
-        newLog.push({
-          type: 'result',
-          text: `🛡️ ${CLANS[winner]?.name} defends ${PROVINCE_DATA[battle.province]?.name}! ${attackerNames} army destroyed.`
-        });
+        // Preserve defender army breakdown if it exists (allied defense)
+        if (battle.defenderArmyBreakdown && battle.defenderArmyBreakdown.length > 1) {
+          // Allied defense - rebuild army presence from breakdown
+          // Note: winnerArmies is combined total, but we need to preserve individual counts
+          // For now, just keep the breakdown as-is (assuming no casualties on defense)
+          const newArmyPresence = battle.defenderArmyBreakdown.map(b => ({
+            clan: b.clan,
+            count: b.armies
+          }));
+          newProvinces[battle.province] = { 
+            ...newProvinces[battle.province], 
+            armyPresence: newArmyPresence
+          };
+          const defenderNames = battle.defenderArmyBreakdown.map(b => CLANS[b.clan]?.name).join(' and ');
+          const attackerNames = battle.attackerArmyBreakdown 
+            ? battle.attackerArmyBreakdown.map(b => CLANS[b.clan]?.name).join(' and ')
+            : CLANS[battle.attacker]?.name;
+          newLog.push({
+            type: 'result',
+            text: `🛡️ ${defenderNames} defend ${PROVINCE_DATA[battle.province]?.name}! ${attackerNames} army destroyed.`
+          });
+        } else {
+          // Solo defender
+          newProvinces[battle.province] = { 
+            ...newProvinces[battle.province], 
+            armyPresence: [{ clan: battle.defender, count: winnerArmies }]
+          };
+          const attackerNames = battle.attackerArmyBreakdown 
+            ? battle.attackerArmyBreakdown.map(b => CLANS[b.clan]?.name).join(' and ')
+            : CLANS[battle.attacker]?.name;
+          newLog.push({
+            type: 'result',
+            text: `🛡️ ${CLANS[winner]?.name} defends ${PROVINCE_DATA[battle.province]?.name}! ${attackerNames} army destroyed.`
+          });
+        }
       }
       
       // Check for waiting attackers (multi-attacker chain)
@@ -2204,12 +2246,23 @@ export default function SengokuMap() {
                       </g>
                     )}
                     
-                    {/* Defender banner (right) */}
+                    {/* Defender banner(s) - show each allied defender separately if breakdown exists */}
                     {battle.defender && (
-                      <g>
-                        <path d={`M${cx + 6} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.defender]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
-                        <text x={cx + 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.defenderArmies}</text>
-                      </g>
+                      battle.defenderArmyBreakdown && battle.defenderArmyBreakdown.length > 1 ? (
+                        // Multiple allied defenders - show each one
+                        battle.defenderArmyBreakdown.map((db, idx) => (
+                          <g key={`defender-${db.clan}`}>
+                            <path d={`M${cx + 6 + (idx * 13)} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[db.clan]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                            <text x={cx + 12 + (idx * 13)} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{db.armies}</text>
+                          </g>
+                        ))
+                      ) : (
+                        // Single defender
+                        <g>
+                          <path d={`M${cx + 6} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.defender]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                          <text x={cx + 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.defenderArmies}</text>
+                        </g>
+                      )
                     )}
                     
                     {/* Show waiting armies below - from bracket OR from waitingAttackers queue */}
@@ -2763,16 +2816,37 @@ export default function SengokuMap() {
                       <span style={{ color: S.gold, fontSize: 20, padding: '0 8px' }}>VS</span>
                       
                       <div style={{ textAlign: 'center', flex: 1 }}>
-                        <div style={{ width: 40, height: 40, background: CLANS[battle.defender]?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #000', margin: '0 auto 4px' }}>
-                          <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{battle.defenderArmies}</span>
-                        </div>
-                        <p style={{ color: CLANS[battle.defender]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[battle.defender]?.name}</p>
-                        {battle.defenderAllies?.length > 0 && (
-                          <p style={{ color: S.parchmentDark, fontSize: 9 }}>
-                            + {battle.defenderAllies.map(a => CLANS[a]?.name).join(', ')}
-                          </p>
+                        {/* Show individual army banners if there's a breakdown */}
+                        {battle.defenderArmyBreakdown && battle.defenderArmyBreakdown.length > 1 ? (
+                          <div style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 4 }}>
+                            {battle.defenderArmyBreakdown.map((b, idx) => (
+                              <div key={idx} style={{ textAlign: 'center' }}>
+                                <div style={{ width: 32, height: 32, background: CLANS[b.clan]?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #000' }}>
+                                  <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>{b.armies}</span>
+                                </div>
+                                <p style={{ color: CLANS[b.clan]?.color, fontSize: 9, fontWeight: '600' }}>{CLANS[b.clan]?.name}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ width: 40, height: 40, background: CLANS[battle.defender]?.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid #000', margin: '0 auto 4px' }}>
+                            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{battle.defenderArmies}</span>
+                          </div>
                         )}
-                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>Defender{battle.defenderAllies?.length > 0 ? 's' : ''}</p>
+                        {!battle.defenderArmyBreakdown || battle.defenderArmyBreakdown.length <= 1 ? (
+                          <>
+                            <p style={{ color: CLANS[battle.defender]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[battle.defender]?.name}</p>
+                            {battle.defenderAllies?.length > 0 && (
+                              <p style={{ color: S.parchmentDark, fontSize: 9 }}>
+                                + {battle.defenderAllies.map(a => CLANS[a]?.name).join(', ')}
+                              </p>
+                            )}
+                          </>
+                        ) : null}
+                        <p style={{ color: S.parchmentDark, fontSize: 9 }}>
+                          Defender{(battle.defenderAllies?.length > 0 || (battle.defenderArmyBreakdown?.length > 1)) ? 's' : ''}
+                          {battle.defenderArmyBreakdown?.length > 1 && ` (${battle.defenderArmies} total)`}
+                        </p>
                       </div>
                     </div>
                     
