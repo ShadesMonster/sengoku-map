@@ -212,6 +212,36 @@ export default function SengokuMap() {
   const [weekHistory, setWeekHistory] = useState([]); // Array of { week, events: [] }
   const [showHistory, setShowHistory] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
+  const [allianceRequests, setAllianceRequests] = useState([]); // { id, from, to, timestamp }
+  const [alliances, setAlliances] = useState([]); // { clan1, clan2, formedAt }
+
+  // Helper to check if two clans are allied
+  const areAllied = (clan1, clan2) => {
+    return alliances.some(a => 
+      (a.clan1 === clan1 && a.clan2 === clan2) || 
+      (a.clan1 === clan2 && a.clan2 === clan1)
+    );
+  };
+  
+  // Helper to get allies of a clan
+  const getAllies = (clanId) => {
+    return alliances
+      .filter(a => a.clan1 === clanId || a.clan2 === clanId)
+      .map(a => a.clan1 === clanId ? a.clan2 : a.clan1);
+  };
+  
+  // Helper to get pending requests for a clan
+  const getPendingRequests = (clanId) => {
+    return allianceRequests.filter(r => r.to === clanId);
+  };
+  
+  // Helper to check if request already sent
+  const hasRequestPending = (fromClan, toClan) => {
+    return allianceRequests.some(r => 
+      (r.from === fromClan && r.to === toClan) ||
+      (r.from === toClan && r.to === fromClan)
+    );
+  };
 
   // Helper to add event to current week's history
   const addHistoryEvent = (event) => {
@@ -800,13 +830,15 @@ export default function SengokuMap() {
         if (s.lastProcessedPhase) setLastProcessedPhase(s.lastProcessedPhase);
         if (s.moveLog) setMoveLog(s.moveLog);
         if (s.weekHistory) setWeekHistory(s.weekHistory);
+        if (s.allianceRequests) setAllianceRequests(s.allianceRequests);
+        if (s.alliances) setAlliances(s.alliances);
       } catch (e) {}
     }
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog, weekHistory }));
-  }, [provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog, weekHistory]);
+    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog, weekHistory, allianceRequests, alliances }));
+  }, [provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog, weekHistory, allianceRequests, alliances]);
 
   const resolveBattle = (battleId, winner) => {
     const battle = activeBattles.find(b => b.id === battleId);
@@ -1335,9 +1367,39 @@ export default function SengokuMap() {
             { l: '◯', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }) }].map((b, i) => (
             <button key={i} onClick={b.a} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
           ))}
-          <button onClick={() => { setShowDashboard(!showDashboard); setShowHistory(false); }} style={{ width: 32, height: 32, background: showDashboard ? CLANS[clan]?.color : S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 14, marginTop: 8 }} title="Clan Dashboard">🏯</button>
+          <button 
+            onClick={() => { setShowDashboard(!showDashboard); setShowHistory(false); }} 
+            style={{ 
+              width: 32, 
+              height: 32, 
+              background: showDashboard ? CLANS[clan]?.color : S.woodMid, 
+              border: `1px solid ${S.woodLight}`, 
+              color: S.parchment, 
+              fontSize: 14, 
+              marginTop: 8,
+              animation: getPendingRequests(clan).length > 0 && !showDashboard ? 'pulse 1.5s infinite' : 'none',
+              boxShadow: getPendingRequests(clan).length > 0 && !showDashboard ? `0 0 10px ${S.gold}` : 'none',
+            }} 
+            title="Clan Dashboard"
+          >
+            🏯
+            {getPendingRequests(clan).length > 0 && !showDashboard && (
+              <span style={{ position: 'absolute', top: -4, right: -4, background: S.red, color: '#fff', fontSize: 10, borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {getPendingRequests(clan).length}
+              </span>
+            )}
+          </button>
           <button onClick={() => { setShowHistory(!showHistory); setShowDashboard(false); }} style={{ width: 32, height: 32, background: showHistory ? S.gold : S.woodMid, border: `1px solid ${S.woodLight}`, color: showHistory ? S.woodDark : S.parchment, fontSize: 14 }} title="History">📜</button>
         </div>
+        
+        {/* CSS for pulse animation */}
+        <style>{`
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+          }
+        `}</style>
 
         {/* Clan Dashboard Panel */}
         {showDashboard && (() => {
@@ -1347,6 +1409,9 @@ export default function SengokuMap() {
           const clanMoves = [...pendingMoves.filter(m => m.clan === clan), ...committedMoves.filter(m => m.clan === clan)];
           const rallyCap = clanData[clan]?.rallyCap || 0;
           const maxArmies = Math.floor(rallyCap / 20);
+          const myAllies = getAllies(clan);
+          const incomingRequests = getPendingRequests(clan);
+          const otherClans = Object.keys(CLANS).filter(c => c !== clan && c !== 'uncontrolled');
           
           return (
             <div className="absolute top-24 left-4 z-20" style={{ width: 340, maxHeight: 'calc(100vh - 200px)', background: S.woodMid, border: `3px solid ${CLANS[clan]?.color}`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -1464,7 +1529,7 @@ export default function SengokuMap() {
                 
                 {/* Active Battles */}
                 {activeBattles.filter(b => b.attacker === clan || b.defender === clan).length > 0 && (
-                  <div>
+                  <div style={{ marginBottom: 16 }}>
                     <p style={{ color: S.red, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Active Battles</p>
                     {activeBattles.filter(b => b.attacker === clan || b.defender === clan).map(b => (
                       <div key={b.id} style={{ background: 'rgba(139,0,0,0.2)', padding: 6, marginBottom: 4, fontSize: 10 }}>
@@ -1484,6 +1549,125 @@ export default function SengokuMap() {
                     ))}
                   </div>
                 )}
+                
+                {/* Incoming Alliance Requests */}
+                {incomingRequests.length > 0 && (
+                  <div style={{ marginBottom: 16, background: `rgba(184,134,11,0.2)`, border: `2px solid ${S.gold}`, padding: 12 }}>
+                    <p style={{ color: S.gold, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>⚠️ Alliance Requests</p>
+                    {incomingRequests.map(req => (
+                      <div key={req.id} style={{ background: 'rgba(0,0,0,0.2)', padding: 8, marginBottom: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ color: CLANS[req.from]?.color, fontWeight: '600', fontSize: 12 }}>
+                            {CLANS[req.from]?.name}
+                          </span>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => {
+                                // Accept alliance
+                                setAlliances([...alliances, { clan1: req.from, clan2: req.to, formedAt: Date.now() }]);
+                                setAllianceRequests(allianceRequests.filter(r => r.id !== req.id));
+                                addHistoryEvent({
+                                  type: 'alliance',
+                                  icon: '🤝',
+                                  text: `${CLANS[req.to]?.name} and ${CLANS[req.from]?.name} form alliance`,
+                                  clan1: req.from,
+                                  clan2: req.to,
+                                });
+                              }}
+                              style={{ background: '#2d5016', border: 'none', color: S.parchment, fontSize: 9, padding: '4px 8px' }}
+                            >
+                              Accept
+                            </button>
+                            <button 
+                              onClick={() => setAllianceRequests(allianceRequests.filter(r => r.id !== req.id))}
+                              style={{ background: S.red, border: 'none', color: S.parchment, fontSize: 9, padding: '4px 8px' }}
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Current Allies */}
+                <div style={{ marginBottom: 16 }}>
+                  <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>🤝 Allies</p>
+                  {myAllies.length === 0 ? (
+                    <p style={{ color: S.parchmentDark, fontSize: 11, fontStyle: 'italic' }}>No alliances</p>
+                  ) : (
+                    myAllies.map(allyId => (
+                      <div key={allyId} style={{ background: 'rgba(0,0,0,0.2)', padding: 8, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ color: CLANS[allyId]?.color, fontWeight: '600', fontSize: 12 }}>
+                          {CLANS[allyId]?.name}
+                        </span>
+                        <button 
+                          onClick={() => {
+                            setAlliances(alliances.filter(a => 
+                              !((a.clan1 === clan && a.clan2 === allyId) || (a.clan1 === allyId && a.clan2 === clan))
+                            ));
+                            addHistoryEvent({
+                              type: 'alliance_broken',
+                              icon: '💔',
+                              text: `${CLANS[clan]?.name} breaks alliance with ${CLANS[allyId]?.name}`,
+                              clan1: clan,
+                              clan2: allyId,
+                            });
+                          }}
+                          style={{ background: S.red, border: 'none', color: S.parchment, fontSize: 8, padding: '2px 6px' }}
+                        >
+                          Break
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {/* Send Alliance Request */}
+                <div>
+                  <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Diplomacy</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {otherClans.filter(c => !areAllied(clan, c) && !hasRequestPending(clan, c)).map(otherClan => (
+                      <button 
+                        key={otherClan}
+                        onClick={() => {
+                          setAllianceRequests([...allianceRequests, {
+                            id: Date.now(),
+                            from: clan,
+                            to: otherClan,
+                            timestamp: Date.now(),
+                          }]);
+                        }}
+                        style={{ 
+                          background: S.woodDark, 
+                          border: `1px solid ${CLANS[otherClan]?.color}`, 
+                          color: CLANS[otherClan]?.color, 
+                          fontSize: 9, 
+                          padding: '4px 8px' 
+                        }}
+                      >
+                        Request {CLANS[otherClan]?.name}
+                      </button>
+                    ))}
+                  </div>
+                  {allianceRequests.filter(r => r.from === clan).length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <p style={{ color: S.parchmentDark, fontSize: 9, marginBottom: 4 }}>Pending sent:</p>
+                      {allianceRequests.filter(r => r.from === clan).map(req => (
+                        <span key={req.id} style={{ color: CLANS[req.to]?.color, fontSize: 10, marginRight: 8 }}>
+                          {CLANS[req.to]?.name}
+                          <button 
+                            onClick={() => setAllianceRequests(allianceRequests.filter(r => r.id !== req.id))}
+                            style={{ background: 'none', border: 'none', color: S.red, fontSize: 10, marginLeft: 2, cursor: 'pointer' }}
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
