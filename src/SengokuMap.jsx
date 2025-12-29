@@ -466,7 +466,7 @@ export default function SengokuMap() {
     
     // Process each destination
     remainingByDest.forEach((destMoves, destProvId) => {
-      const targetProv = newProvinces[destProvId];
+      let targetProv = newProvinces[destProvId];
       
       // Merge moves from same clan to same destination (combine armies)
       const clanMoves = new Map();
@@ -634,15 +634,9 @@ export default function SengokuMap() {
         
       } else if (targetProv.owner !== 'uncontrolled' && uniqueClans.length > 1) {
         // MULTI-CLAN ATTACK ON CLAIMED TERRITORY (stationary defender)
-        console.log('MULTI-CLAN ATTACK:', destProvId, 'owner:', targetProv.owner);
-        console.log('uniqueClans:', uniqueClans.map(m => ({ clan: m.clan, armies: m.armies })));
-        
         // Filter to only attacking clans (not reinforcements or the owner)
         const attackers = uniqueClans.filter(m => m.clan !== targetProv.owner);
         const reinforcement = uniqueClans.find(m => m.clan === targetProv.owner);
-        
-        console.log('attackers:', attackers.map(m => m.clan));
-        console.log('reinforcement:', reinforcement?.clan);
         
         // Handle reinforcement first if any (owner moving more armies to their own province)
         if (reinforcement) {
@@ -682,8 +676,6 @@ export default function SengokuMap() {
             attackerBlocks.push(block);
           });
           
-          console.log('attackerBlocks before sorting:', attackerBlocks.map(b => b.map(m => m.clan)));
-          
           // Sort blocks by earliest commit time
           attackerBlocks.sort((a, b) => {
             const aEarliest = Math.min(...a.map(m => m.committedAt || Infinity));
@@ -696,8 +688,6 @@ export default function SengokuMap() {
             block.some(m => areAllied(m.clan, targetProv.owner))
           );
           
-          console.log('defenderAlliesBlock:', defenderAlliesBlock?.map(m => m.clan));
-          
           // Track defender allies for battle display
           const defenderAllyClans = [];
           const defenderArmyBreakdown = [];
@@ -708,7 +698,6 @@ export default function SengokuMap() {
               const armyCount = m.armies || 1;
               const src = newProvinces[m.from];
               const available = getClanArmies(src, m.clan);
-              console.log(`Processing defender ally ${m.clan}: armyCount=${armyCount}, available=${available}`);
               if (available >= armyCount) {
                 newProvinces[destProvId] = addArmiesToProvince(newProvinces[destProvId], m.clan, armyCount);
                 newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
@@ -725,19 +714,14 @@ export default function SengokuMap() {
             if (idx > -1) attackerBlocks.splice(idx, 1);
           }
           
-          console.log('attackerBlocks after removing defender allies:', attackerBlocks.map(b => b.map(m => m.clan)));
-          
           // Refresh targetProv after reinforcements
           targetProv = newProvinces[destProvId];
           
           // Add defender's own armies to breakdown
           const defenderOwnArmies = getClanArmies(targetProv, targetProv.owner);
-          console.log('defenderOwnArmies:', defenderOwnArmies);
           if (defenderOwnArmies > 0) {
             defenderArmyBreakdown.unshift({ clan: targetProv.owner, armies: defenderOwnArmies });
           }
-          
-          console.log('defenderArmyBreakdown:', defenderArmyBreakdown);
           
           if (attackerBlocks.length > 0) {
             // First alliance block attacks, others wait
