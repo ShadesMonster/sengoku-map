@@ -178,10 +178,51 @@ export default function SengokuMap() {
       Object.entries(CLANS).forEach(([cid, c]) => {
         if (c.provinces?.includes(id)) owner = cid;
       });
-      init[id] = { ...p, id, owner, armies: owner !== 'uncontrolled' ? 1 : 0 };
+      // New structure: armyPresence is array of {clan, count}
+      const armyPresence = owner !== 'uncontrolled' ? [{ clan: owner, count: 1 }] : [];
+      init[id] = { ...p, id, owner, armyPresence };
     });
     return init;
   });
+  
+  // Helper to get total armies at a province
+  const getTotalArmies = (prov) => {
+    if (!prov?.armyPresence) return prov?.armies || 0; // Fallback for old format
+    return prov.armyPresence.reduce((sum, a) => sum + a.count, 0);
+  };
+  
+  // Helper to get a specific clan's armies at a province
+  const getClanArmies = (prov, clanId) => {
+    if (!prov?.armyPresence) return prov?.owner === clanId ? (prov?.armies || 0) : 0;
+    return prov.armyPresence.find(a => a.clan === clanId)?.count || 0;
+  };
+  
+  // Helper to add armies to a province for a clan
+  const addArmiesToProvince = (prov, clanId, count) => {
+    const newPresence = [...(prov.armyPresence || [])];
+    const existing = newPresence.find(a => a.clan === clanId);
+    if (existing) {
+      existing.count += count;
+    } else {
+      newPresence.push({ clan: clanId, count });
+    }
+    return { ...prov, armyPresence: newPresence };
+  };
+  
+  // Helper to remove armies from a province for a clan
+  const removeArmiesFromProvince = (prov, clanId, count) => {
+    const newPresence = [...(prov.armyPresence || [])];
+    const existing = newPresence.find(a => a.clan === clanId);
+    if (existing) {
+      existing.count = Math.max(0, existing.count - count);
+      // Remove entry if count is 0
+      if (existing.count === 0) {
+        const idx = newPresence.indexOf(existing);
+        newPresence.splice(idx, 1);
+      }
+    }
+    return { ...prov, armyPresence: newPresence };
+  };
   
   // Clan-level data (rally caps, etc)
   const [clanData, setClanData] = useState(() => {
@@ -276,10 +317,7 @@ export default function SengokuMap() {
         const newProvinces = { ...provinces };
         pendingLevies.forEach(levy => {
           if (newProvinces[levy.province] && newProvinces[levy.province].owner === levy.clan) {
-            newProvinces[levy.province] = {
-              ...newProvinces[levy.province],
-              armies: newProvinces[levy.province].armies + 1
-            };
+            newProvinces[levy.province] = addArmiesToProvince(newProvinces[levy.province], levy.clan, 1);
             // Add history event for levy
             addHistoryEvent({
               type: 'levy',
@@ -406,8 +444,8 @@ export default function SengokuMap() {
       
       battles.push(battle);
       
-      newProvinces[move1.from] = { ...newProvinces[move1.from], armies: newProvinces[move1.from].armies - army1 };
-      newProvinces[move2.from] = { ...newProvinces[move2.from], armies: newProvinces[move2.from].armies - army2 };
+      newProvinces[move1.from] = removeArmiesFromProvince(newProvinces[move1.from], move1.clan, army1);
+      newProvinces[move2.from] = removeArmiesFromProvince(newProvinces[move2.from], move2.clan, army2);
       
       log.push({
         type: 'collision',
@@ -774,7 +812,9 @@ export default function SengokuMap() {
           const sourceProv = newProvinces[m.from];
           const currentTarget = newProvinces[m.to];
           
-          if (sourceProv.armies < armyCount) {
+          // Check if clan has enough armies at source
+          const clanArmiesAtSource = getClanArmies(sourceProv, m.clan);
+          if (clanArmiesAtSource < armyCount) {
             log.push({
               type: 'skip',
               text: `${CLANS[m.clan]?.name} order cancelled - not enough armies at ${PROVINCE_DATA[m.from]?.name}`
@@ -782,18 +822,18 @@ export default function SengokuMap() {
             return;
           }
           
-          if (currentTarget.owner === m.clan) {
-            // REINFORCEMENT
-            newProvinces[m.to] = { ...currentTarget, armies: currentTarget.armies + armyCount };
-            newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+          if (currentTarget.owner === m.clan || areAllied(currentTarget.owner, m.clan)) {
+            // REINFORCEMENT (own territory or ally's territory)
+            newProvinces[m.to] = addArmiesToProvince(currentTarget, m.clan, armyCount);
+            newProvinces[m.from] = removeArmiesFromProvince(sourceProv, m.clan, armyCount);
             log.push({
               type: 'reinforce',
               text: `${CLANS[m.clan]?.name} reinforces ${PROVINCE_DATA[m.to]?.name} (+${armyCount})`
             });
           } else if (currentTarget.owner === 'uncontrolled') {
             // CLAIM (single clan)
-            newProvinces[m.to] = { ...currentTarget, owner: m.clan, armies: armyCount };
-            newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+            newProvinces[m.to] = { ...currentTarget, owner: m.clan, armyPresence: [{ clan: m.clan, count: armyCount }] };
+            newProvinces[m.from] = removeArmiesFromProvince(sourceProv, m.clan, armyCount);
             log.push({
               type: 'claim',
               text: `✓ ${CLANS[m.clan]?.name} claims ${PROVINCE_DATA[m.to]?.name}`
@@ -806,6 +846,8 @@ export default function SengokuMap() {
                 (c.move2.clan === currentTarget.owner && c.move2.from === m.to)
               );
             
+            const defenderArmies = getTotalArmies(currentTarget);
+            
             if (defenderInCollision) {
               pendingAttacksNew.push({
                 id: `pending-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -816,16 +858,16 @@ export default function SengokuMap() {
                 waitingFor: currentTarget.owner,
               });
               
-              newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+              newProvinces[m.from] = removeArmiesFromProvince(sourceProv, m.clan, armyCount);
               
               log.push({
                 type: 'pending',
                 text: `⏳ ${CLANS[m.clan]?.name} (${armyCount}) at ${PROVINCE_DATA[m.to]?.name} - waiting for ${CLANS[currentTarget.owner]?.name}`
               });
-            } else if (currentTarget.armies === 0) {
+            } else if (defenderArmies === 0) {
               // AUTO-WIN
-              newProvinces[m.to] = { ...currentTarget, owner: m.clan, armies: armyCount };
-              newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+              newProvinces[m.to] = { ...currentTarget, owner: m.clan, armyPresence: [{ clan: m.clan, count: armyCount }] };
+              newProvinces[m.from] = removeArmiesFromProvince(sourceProv, m.clan, armyCount);
               log.push({
                 type: 'auto-win',
                 text: `✓ ${CLANS[m.clan]?.name} takes undefended ${PROVINCE_DATA[m.to]?.name}`
@@ -842,14 +884,14 @@ export default function SengokuMap() {
                 defender: currentTarget.owner,
                 attackerFrom: m.from,
                 attackerArmies: armyCount,
-                defenderArmies: currentTarget.armies,
+                defenderArmies: defenderArmies,
               });
               
-              newProvinces[m.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+              newProvinces[m.from] = removeArmiesFromProvince(sourceProv, m.clan, armyCount);
               
               log.push({
                 type: 'battle',
-                text: `⚔️ ${CLANS[m.clan]?.name} (${armyCount}) attacks ${CLANS[currentTarget.owner]?.name} (${currentTarget.armies}) at ${PROVINCE_DATA[m.to]?.name}`
+                text: `⚔️ ${CLANS[m.clan]?.name} (${armyCount}) attacks ${CLANS[currentTarget.owner]?.name} (${defenderArmies}) at ${PROVINCE_DATA[m.to]?.name}`
               });
             }
           }
@@ -1062,32 +1104,19 @@ export default function SengokuMap() {
         // Attacker wins - takes the province
         // If there are allied attackers, each keeps their own army at the province
         if (battle.attackerArmyBreakdown && battle.attackerArmyBreakdown.length > 1) {
-          // Allied victory - primary attacker owns, but each ally keeps army there
+          // Allied victory - primary attacker owns, each clan keeps their armies there
           const primaryClan = battle.attacker;
-          const primaryArmies = battle.attackerArmyBreakdown.find(b => b.clan === primaryClan)?.armies || winnerArmies;
           
-          // Set province owner to primary attacker with their army count
-          newProvinces[battle.province] = { 
-            ...newProvinces[battle.province], 
-            owner: primaryClan, 
-            armies: primaryArmies
-          };
-          
-          // Allied armies return to... where? They stay as "visiting" armies
-          // For now, we add them to the province army count but track separately
-          // Actually, let's have allied armies add to the total at that province
-          // The owner is the primary, but total armies = all allies combined
-          let totalArmies = 0;
-          battle.attackerArmyBreakdown.forEach(b => {
-            totalArmies += b.armies;
-          });
+          // Build armyPresence from breakdown
+          const newArmyPresence = battle.attackerArmyBreakdown.map(b => ({
+            clan: b.clan,
+            count: b.armies
+          }));
           
           newProvinces[battle.province] = { 
             ...newProvinces[battle.province], 
-            owner: primaryClan, 
-            armies: totalArmies,
-            // Store breakdown for display
-            armyBreakdown: battle.attackerArmyBreakdown
+            owner: primaryClan,
+            armyPresence: newArmyPresence
           };
           
           const allyNames = battle.attackerArmyBreakdown.map(b => CLANS[b.clan]?.name).join(' and ');
@@ -1100,8 +1129,7 @@ export default function SengokuMap() {
           newProvinces[battle.province] = { 
             ...newProvinces[battle.province], 
             owner: battle.attacker, 
-            armies: winnerArmies,
-            armyBreakdown: null
+            armyPresence: [{ clan: battle.attacker, count: winnerArmies }]
           };
           newLog.push({
             type: 'result',
@@ -1112,8 +1140,7 @@ export default function SengokuMap() {
         // Defender wins - keeps province, attacker army destroyed
         newProvinces[battle.province] = { 
           ...newProvinces[battle.province], 
-          armies: winnerArmies,
-          armyBreakdown: null
+          armyPresence: [{ clan: battle.defender, count: winnerArmies }]
         };
         const attackerNames = battle.attackerArmyBreakdown 
           ? battle.attackerArmyBreakdown.map(b => CLANS[b.clan]?.name).join(' and ')
@@ -1350,9 +1377,11 @@ export default function SengokuMap() {
 
   const getColor = (provId) => CLANS[provinces[provId]?.owner]?.color || '#5c5347';
 
-  // Calculate available armies at a province (total minus already committed/pending)
+  // Calculate available armies at a province for the current clan (total minus already committed/pending)
   const getAvailableArmies = (provId) => {
-    const total = provinces[provId]?.armies || 0;
+    const prov = provinces[provId];
+    // Get this clan's armies at this province
+    const total = getClanArmies(prov, clan);
     const pendingFrom = pendingMoves.filter(m => m.from === provId && m.clan === clan).reduce((sum, m) => sum + (m.armies || 1), 0);
     const committedFrom = committedMoves.filter(m => m.from === provId && m.clan === clan).reduce((sum, m) => sum + (m.armies || 1), 0);
     return total - pendingFrom - committedFrom;
@@ -2219,10 +2248,28 @@ export default function SengokuMap() {
                 )}
                 
                 {/* Normal army banner (only if no battle and no pending) */}
-                {!battle && !pending && owned && prov.armies > 0 && (
-                  <g onClick={(e) => { e.stopPropagation(); startArmyMove(provId); }} style={{ cursor: prov.owner === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}>
-                    <path d={`M${cx - 6} ${cy + (isZoomedIn ? 2 : -4)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[prov.owner]?.color} stroke={prov.owner === clan ? S.gold : '#000'} strokeWidth="1" filter="url(#shadow)" />
-                    <text x={cx} y={cy + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{prov.armies}</text>
+                {!battle && !pending && owned && getTotalArmies(prov) > 0 && (
+                  <g>
+                    {/* Show each clan's army presence as separate banners */}
+                    {(prov.armyPresence || [{ clan: prov.owner, count: prov.armies || 0 }]).map((ap, idx) => {
+                      if (ap.count <= 0) return null;
+                      const xOffset = idx * 13 - ((prov.armyPresence?.length || 1) - 1) * 6.5;
+                      return (
+                        <g 
+                          key={ap.clan}
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            if (ap.clan === clan && currentPhase.phase === 'PLANNING') {
+                              startArmyMove(provId); 
+                            }
+                          }} 
+                          style={{ cursor: ap.clan === clan && currentPhase.phase === 'PLANNING' ? 'pointer' : 'default', pointerEvents: 'auto' }}
+                        >
+                          <path d={`M${cx - 6 + xOffset} ${cy + (isZoomedIn ? 2 : -4)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[ap.clan]?.color} stroke={ap.clan === clan ? S.gold : '#000'} strokeWidth="1" filter="url(#shadow)" />
+                          <text x={cx + xOffset} y={cy + (isZoomedIn ? 7 : 1)} textAnchor="middle" dominantBaseline="middle" fontSize="7" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{ap.count}</text>
+                        </g>
+                      );
+                    })}
                   </g>
                 )}
               </g>
@@ -2506,9 +2553,10 @@ export default function SengokuMap() {
               // Can raise here if: clan has capacity AND this province doesn't already have a pending levy
               const canRaiseHere = clanCanRaise > 0 && !thisProvHasLevyQueued;
               
-              const currentArmies = prov.armies || 0;
+              // Get army presence (new format) or fall back to old format
+              const armyPresence = prov.armyPresence || (prov.armies ? [{ clan: provOwner, count: prov.armies }] : []);
+              const currentArmies = getTotalArmies(prov);
               const isOwner = provOwner === clan;
-              const armyBreakdown = prov.armyBreakdown; // From allied conquest
               
               return (
                 <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
@@ -2523,13 +2571,14 @@ export default function SengokuMap() {
                     </div>
                   </div>
                   
-                  {/* Show army breakdown if multiple clans have armies here */}
-                  {armyBreakdown && armyBreakdown.length > 1 && (
+                  {/* Show army presence - each clan's armies */}
+                  {armyPresence.length > 0 && (
                     <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                      {armyBreakdown.map((b, idx) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.2)', padding: '4px 8px' }}>
-                          <div style={{ width: 16, height: 16, background: CLANS[b.clan]?.color, border: '1px solid #000' }} />
-                          <span style={{ color: CLANS[b.clan]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[b.clan]?.name}: {b.armies}</span>
+                      {armyPresence.map((ap, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.2)', padding: '4px 8px', border: ap.clan === provOwner ? `1px solid ${S.gold}` : '1px solid transparent' }}>
+                          <div style={{ width: 16, height: 16, background: CLANS[ap.clan]?.color, border: '1px solid #000' }} />
+                          <span style={{ color: CLANS[ap.clan]?.color, fontSize: 11, fontWeight: '600' }}>{CLANS[ap.clan]?.name}: {ap.count}</span>
+                          {ap.clan === provOwner && <span style={{ color: S.gold, fontSize: 8 }}>👑</span>}
                         </div>
                       ))}
                     </div>
@@ -2784,9 +2833,10 @@ export default function SengokuMap() {
               return null;
             })()}
 
-            {provinces[selected].owner === clan && provinces[selected].armies > 0 && currentPhase.phase === 'PLANNING' && (
+            {/* Move Army - show if player has armies here (even if not owner) */}
+            {getClanArmies(provinces[selected], clan) > 0 && currentPhase.phase === 'PLANNING' && (
               <button onClick={() => startArmyMove(selected)} style={{ width: '100%', padding: 12, background: 'linear-gradient(180deg, #3d6b1e 0%, #2d5016 100%)', border: `2px solid #4a7c23`, color: S.parchment, fontSize: 14, fontWeight: '600', marginBottom: 16 }}>
-                進軍 Move Army
+                進軍 Move Army ({getClanArmies(provinces[selected], clan)} available)
               </button>
             )}
             
