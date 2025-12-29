@@ -1431,7 +1431,8 @@ export default function SengokuMap() {
   const startArmyMove = (provId) => {
     if (currentPhase.phase === 'BATTLE') return;
     const available = getAvailableArmies(provId);
-    if (provinces[provId].owner === clan && available > 0) {
+    // Allow move if this clan has armies here (regardless of ownership)
+    if (available > 0) {
       setSelectedArmy(provId);
       setArmySplitCount(available); // Default to all available
     }
