@@ -522,18 +522,19 @@ export default function SengokuMap() {
           allMoves.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
           const firstMove = allMoves[0];
           
-          // Total armies from all allied clans
-          let totalArmies = 0;
+          // Total armies from all allied clans - build army presence
+          const newArmyPresence = [];
           allMoves.forEach(m => {
             const armyCount = m.armies || 1;
             const src = newProvinces[m.from];
-            if (src.armies >= armyCount) {
-              totalArmies += armyCount;
-              newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+            const available = getClanArmies(src, m.clan);
+            if (available >= armyCount) {
+              newArmyPresence.push({ clan: m.clan, count: armyCount });
+              newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
             }
           });
           
-          newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armies: totalArmies };
+          newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armyPresence: newArmyPresence };
           
           const allyNames = allMoves.map(m => CLANS[m.clan]?.name).join(' and ');
           log.push({
@@ -561,16 +562,21 @@ export default function SengokuMap() {
         const firstMove = claimingBlock[0];
         
         let claimingArmies = 0;
+        const claimingArmyBreakdown = [];
         claimingBlock.forEach(m => {
           const armyCount = m.armies || 1;
           const src = newProvinces[m.from];
-          if (src.armies >= armyCount) {
+          const available = getClanArmies(src, m.clan);
+          if (available >= armyCount) {
             claimingArmies += armyCount;
-            newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+            claimingArmyBreakdown.push({ clan: m.clan, armies: armyCount });
+            newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
           }
         });
         
-        newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armies: claimingArmies };
+        // Set up province with claiming armies
+        const claimingArmyPresence = claimingArmyBreakdown.map(b => ({ clan: b.clan, count: b.armies }));
+        newProvinces[destProvId] = { ...targetProv, owner: firstMove.clan, armyPresence: claimingArmyPresence };
         
         const claimingNames = claimingBlock.map(m => CLANS[m.clan]?.name).join(' and ');
         log.push({
@@ -582,13 +588,16 @@ export default function SengokuMap() {
         challengingBlocks.forEach((block, blockIdx) => {
           let challengingArmies = 0;
           const challengerClans = [];
+          const challengingArmyBreakdown = [];
           
           block.forEach(m => {
             const armyCount = m.armies || 1;
             const src = newProvinces[m.from];
-            if (src.armies >= armyCount) {
+            const available = getClanArmies(src, m.clan);
+            if (available >= armyCount) {
               challengingArmies += armyCount;
-              newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+              challengingArmyBreakdown.push({ clan: m.clan, armies: armyCount });
+              newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
             }
             challengerClans.push(m.clan);
           });
@@ -604,8 +613,10 @@ export default function SengokuMap() {
             province: destProvId,
             attacker: primaryChallenger.clan,
             attackerAllies: challengerClans.filter(c => c !== primaryChallenger.clan),
+            attackerArmyBreakdown: challengingArmyBreakdown,
             defender: firstMove.clan,
             defenderAllies: claimingBlock.filter(m => m.clan !== firstMove.clan).map(m => m.clan),
+            defenderArmyBreakdown: claimingArmyBreakdown,
             attackerFrom: primaryChallenger.from,
             attackerArmies: challengingArmies,
             defenderArmies: claimingArmies,
