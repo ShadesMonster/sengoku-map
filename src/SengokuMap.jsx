@@ -2150,11 +2150,22 @@ export default function SengokuMap() {
                     {/* Battle crossed swords icon */}
                     <text x={cx} y={cy - (isZoomedIn ? 2 : 8)} textAnchor="middle" dominantBaseline="middle" fontSize="10" style={{ filter: 'drop-shadow(0 0 2px #000)' }}>⚔️</text>
                     
-                    {/* Attacker banner (left) */}
-                    <g>
-                      <path d={`M${cx - 18} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.attacker]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
-                      <text x={cx - 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.attackerArmies}</text>
-                    </g>
+                    {/* Attacker banner(s) - show each allied clan separately if breakdown exists */}
+                    {battle.attackerArmyBreakdown && battle.attackerArmyBreakdown.length > 1 ? (
+                      // Multiple allied attackers - show each one
+                      battle.attackerArmyBreakdown.map((ab, idx) => (
+                        <g key={`attacker-${ab.clan}`}>
+                          <path d={`M${cx - 18 - (idx * 13)} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[ab.clan]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                          <text x={cx - 12 - (idx * 13)} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{ab.armies}</text>
+                        </g>
+                      ))
+                    ) : (
+                      // Single attacker
+                      <g>
+                        <path d={`M${cx - 18} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.attacker]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                        <text x={cx - 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.attackerArmies}</text>
+                      </g>
+                    )}
                     
                     {/* Defender banner (right) */}
                     {battle.defender && (
