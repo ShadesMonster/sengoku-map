@@ -492,8 +492,102 @@ export default function SengokuMap() {
         // Mark all these moves as processed
         uniqueClans.forEach(m => processedMoveIds.add(m.id));
         
+      } else if (targetProv.owner !== 'uncontrolled' && uniqueClans.length > 1) {
+        // MULTI-CLAN ATTACK ON CLAIMED TERRITORY (stationary defender)
+        // Filter to only attacking clans (not reinforcements or the owner)
+        const attackers = uniqueClans.filter(m => m.clan !== targetProv.owner);
+        const reinforcement = uniqueClans.find(m => m.clan === targetProv.owner);
+        
+        // Handle reinforcement first if any
+        if (reinforcement) {
+          const armyCount = reinforcement.armies || 1;
+          const sourceProv = newProvinces[reinforcement.from];
+          if (sourceProv.armies >= armyCount) {
+            newProvinces[destProvId] = { ...targetProv, armies: targetProv.armies + armyCount };
+            newProvinces[reinforcement.from] = { ...sourceProv, armies: sourceProv.armies - armyCount };
+            targetProv = newProvinces[destProvId]; // Update reference
+            log.push({
+              type: 'reinforce',
+              text: `${CLANS[reinforcement.clan]?.name} reinforces ${PROVINCE_DATA[destProvId]?.name} (+${armyCount})`
+            });
+          }
+          processedMoveIds.add(reinforcement.id);
+        }
+        
+        if (attackers.length > 0) {
+          // Sort attackers by commit time
+          attackers.sort((a, b) => (a.committedAt || 0) - (b.committedAt || 0));
+          
+          const firstAttacker = attackers[0];
+          const waitingAttackers = attackers.slice(1);
+          
+          // Deduct armies from all attackers
+          attackers.forEach(m => {
+            if (m.allFroms) {
+              m.allFroms.forEach((fromProv, idx) => {
+                const src = newProvinces[fromProv];
+                const armyCount = m.allArmyCounts?.[idx] || 1;
+                if (src && src.armies >= armyCount) {
+                  newProvinces[fromProv] = { ...src, armies: src.armies - armyCount };
+                }
+              });
+            } else {
+              const src = newProvinces[m.from];
+              const armyCount = m.armies || 1;
+              if (src && src.armies >= armyCount) {
+                newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+              }
+            }
+          });
+          
+          // First attacker fights defender
+          const battleType = PROVINCE_DATA[destProvId]?.battleType || 'field';
+          
+          // Build chain info
+          const nextInLine = waitingAttackers[0];
+          const chainInfo = nextInLine ? {
+            attackerWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name} (${nextInLine.armies})`,
+            defenderWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name} (${nextInLine.armies})`,
+          } : null;
+          
+          battles.push({
+            id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'attack',
+            battleType: battleType,
+            province: destProvId,
+            attacker: firstAttacker.clan,
+            defender: targetProv.owner,
+            attackerFrom: firstAttacker.from,
+            attackerArmies: firstAttacker.armies || 1,
+            defenderArmies: targetProv.armies,
+            chainInfo: chainInfo,
+            // Store waiting attackers for chain resolution
+            waitingAttackers: waitingAttackers.map(w => ({
+              clan: w.clan,
+              from: w.from,
+              armies: w.armies || 1,
+            })),
+          });
+          
+          log.push({
+            type: 'battle',
+            text: `⚔️ ${CLANS[firstAttacker.clan]?.name} (${firstAttacker.armies || 1}) attacks ${CLANS[targetProv.owner]?.name} (${targetProv.armies}) at ${PROVINCE_DATA[destProvId]?.name} (first to commit)`
+          });
+          
+          // Log waiting attackers
+          waitingAttackers.forEach(w => {
+            log.push({
+              type: 'pending',
+              text: `⏳ ${CLANS[w.clan]?.name} (${w.armies || 1}) waiting to fight winner at ${PROVINCE_DATA[destProvId]?.name}`
+            });
+          });
+        }
+        
+        // Mark all as processed
+        uniqueClans.forEach(m => processedMoveIds.add(m.id));
+        
       } else {
-        // Single clan or claimed territory - process normally one by one
+        // Single clan - process normally
         uniqueClans.forEach(m => {
           if (processedMoveIds.has(m.id)) return;
           processedMoveIds.add(m.id);
@@ -801,6 +895,43 @@ export default function SengokuMap() {
         newLog.push({
           type: 'result',
           text: `🛡️ ${CLANS[winner]?.name} defends ${PROVINCE_DATA[battle.province]?.name}! ${CLANS[loser]?.name} army destroyed.`
+        });
+      }
+      
+      // Check for waiting attackers (multi-attacker chain)
+      if (battle.waitingAttackers && battle.waitingAttackers.length > 0) {
+        const nextAttacker = battle.waitingAttackers[0];
+        const remainingAttackers = battle.waitingAttackers.slice(1);
+        
+        // Next attacker fights the winner (new owner or surviving defender)
+        const newDefender = winner;
+        const newDefenderArmies = winnerArmies;
+        const battleType = PROVINCE_DATA[battle.province]?.battleType || 'field';
+        
+        // Build chain info for next battle
+        const nextInLine = remainingAttackers[0];
+        const chainInfo = nextInLine ? {
+          attackerWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name} (${nextInLine.armies})`,
+          defenderWinsNext: `Then fights ${CLANS[nextInLine.clan]?.name} (${nextInLine.armies})`,
+        } : null;
+        
+        newBattles.push({
+          id: `battle-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          type: 'attack',
+          battleType: battleType,
+          province: battle.province,
+          attacker: nextAttacker.clan,
+          defender: newDefender,
+          attackerFrom: nextAttacker.from,
+          attackerArmies: nextAttacker.armies,
+          defenderArmies: newDefenderArmies,
+          chainInfo: chainInfo,
+          waitingAttackers: remainingAttackers,
+        });
+        
+        newLog.push({
+          type: 'battle',
+          text: `⚔️ ${CLANS[nextAttacker.clan]?.name} (${nextAttacker.armies}) now fights ${CLANS[newDefender]?.name} (${newDefenderArmies}) at ${PROVINCE_DATA[battle.province]?.name}!`
         });
       }
     }
@@ -1574,6 +1705,18 @@ export default function SengokuMap() {
                           If {CLANS[battle.defender]?.name} wins → {battle.chainInfo.defenderWinsNext}
                         </div>
                       )}
+                    </div>
+                  )}
+                  
+                  {/* Waiting Attackers Queue */}
+                  {battle.waitingAttackers && battle.waitingAttackers.length > 0 && (
+                    <div style={{ background: 'rgba(139,0,0,0.2)', border: `1px solid ${S.red}`, padding: 6, marginBottom: 8, fontSize: 9 }}>
+                      <div style={{ color: S.red, fontWeight: '600', marginBottom: 4 }}>⏳ Queue ({battle.waitingAttackers.length} waiting):</div>
+                      {battle.waitingAttackers.map((w, idx) => (
+                        <div key={idx} style={{ color: CLANS[w.clan]?.color, marginTop: 2 }}>
+                          {idx + 1}. {CLANS[w.clan]?.name} ({w.armies} armies)
+                        </div>
+                      ))}
                     </div>
                   )}
                   
