@@ -771,6 +771,7 @@ export default function SengokuMap() {
               const blockPrimary = block[0];
               let blockArmies = 0;
               const blockAllies = [];
+              const blockArmyBreakdown = [];
               
               block.forEach(m => {
                 const src = newProvinces[m.from];
@@ -778,6 +779,7 @@ export default function SengokuMap() {
                 const available = getClanArmies(src, m.clan);
                 if (available >= armyCount) {
                   blockArmies += armyCount;
+                  blockArmyBreakdown.push({ clan: m.clan, armies: armyCount });
                   newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
                 }
                 if (m.clan !== blockPrimary.clan) blockAllies.push(m.clan);
@@ -786,6 +788,7 @@ export default function SengokuMap() {
               waitingAttackers.push({
                 clan: blockPrimary.clan,
                 allies: blockAllies,
+                armyBreakdown: blockArmyBreakdown,
                 from: blockPrimary.from,
                 armies: blockArmies,
               });
@@ -1234,6 +1237,8 @@ export default function SengokuMap() {
           battleType: battleType,
           province: battle.province,
           attacker: nextAttacker.clan,
+          attackerAllies: nextAttacker.allies || [],
+          attackerArmyBreakdown: nextAttacker.armyBreakdown || null,
           defender: newDefender,
           attackerFrom: nextAttacker.from,
           attackerArmies: nextAttacker.armies,
@@ -1242,9 +1247,10 @@ export default function SengokuMap() {
           waitingAttackers: remainingAttackers,
         });
         
+        const attackerNames = [nextAttacker.clan, ...(nextAttacker.allies || [])].map(c => CLANS[c]?.name).join(' and ');
         newLog.push({
           type: 'battle',
-          text: `⚔️ ${CLANS[nextAttacker.clan]?.name} (${nextAttacker.armies}) now fights ${CLANS[newDefender]?.name} (${newDefenderArmies}) at ${PROVINCE_DATA[battle.province]?.name}!`
+          text: `⚔️ ${attackerNames} (${nextAttacker.armies}) now fights ${CLANS[newDefender]?.name} (${newDefenderArmies}) at ${PROVINCE_DATA[battle.province]?.name}!`
         });
       }
     }
@@ -2501,11 +2507,19 @@ export default function SengokuMap() {
                   {battle.waitingAttackers && battle.waitingAttackers.length > 0 && (
                     <div style={{ background: 'rgba(139,0,0,0.2)', border: `1px solid ${S.red}`, padding: 6, marginBottom: 8, fontSize: 9 }}>
                       <div style={{ color: S.red, fontWeight: '600', marginBottom: 4 }}>⏳ Queue ({battle.waitingAttackers.length} waiting):</div>
-                      {battle.waitingAttackers.map((w, idx) => (
-                        <div key={idx} style={{ color: CLANS[w.clan]?.color, marginTop: 2 }}>
-                          {idx + 1}. {CLANS[w.clan]?.name} ({w.armies} armies)
-                        </div>
-                      ))}
+                      {battle.waitingAttackers.map((w, idx) => {
+                        const names = [w.clan, ...(w.allies || [])].map(c => CLANS[c]?.name).join(' + ');
+                        return (
+                          <div key={idx} style={{ marginTop: 2 }}>
+                            <span style={{ color: CLANS[w.clan]?.color }}>{idx + 1}. {names}</span>
+                            {w.armyBreakdown && w.armyBreakdown.length > 1 ? (
+                              <span style={{ color: S.parchmentDark }}> ({w.armyBreakdown.map(b => `${b.armies} ${CLANS[b.clan]?.name}`).join(' + ')})</span>
+                            ) : (
+                              <span style={{ color: S.parchmentDark }}> ({w.armies} armies)</span>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                   
@@ -2882,9 +2896,15 @@ export default function SengokuMap() {
                     {battle.waitingAttackers && battle.waitingAttackers.length > 0 && (
                       <div style={{ background: 'rgba(139,0,0,0.2)', padding: 8, marginBottom: 8, fontSize: 10 }}>
                         <p style={{ color: S.red, fontWeight: '600', marginBottom: 4 }}>⏳ Queue:</p>
-                        {battle.waitingAttackers.map((w, idx) => (
-                          <p key={idx} style={{ color: CLANS[w.clan]?.color }}>{idx + 1}. {CLANS[w.clan]?.name} ({w.armies})</p>
-                        ))}
+                        {battle.waitingAttackers.map((w, idx) => {
+                          const names = [w.clan, ...(w.allies || [])].map(c => CLANS[c]?.name).join(' + ');
+                          const armyText = w.armyBreakdown && w.armyBreakdown.length > 1 
+                            ? w.armyBreakdown.map(b => `${b.armies} ${CLANS[b.clan]?.name}`).join(' + ')
+                            : w.armies;
+                          return (
+                            <p key={idx} style={{ color: CLANS[w.clan]?.color }}>{idx + 1}. {names} ({armyText})</p>
+                          );
+                        })}
                       </div>
                     )}
                     
