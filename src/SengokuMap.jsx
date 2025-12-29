@@ -634,11 +634,17 @@ export default function SengokuMap() {
         
       } else if (targetProv.owner !== 'uncontrolled' && uniqueClans.length > 1) {
         // MULTI-CLAN ATTACK ON CLAIMED TERRITORY (stationary defender)
+        console.log('MULTI-CLAN ATTACK:', destProvId, 'owner:', targetProv.owner);
+        console.log('uniqueClans:', uniqueClans.map(m => ({ clan: m.clan, armies: m.armies })));
+        
         // Filter to only attacking clans (not reinforcements or the owner)
         const attackers = uniqueClans.filter(m => m.clan !== targetProv.owner);
         const reinforcement = uniqueClans.find(m => m.clan === targetProv.owner);
         
-        // Handle reinforcement first if any
+        console.log('attackers:', attackers.map(m => m.clan));
+        console.log('reinforcement:', reinforcement?.clan);
+        
+        // Handle reinforcement first if any (owner moving more armies to their own province)
         if (reinforcement) {
           const armyCount = reinforcement.armies || 1;
           const sourceProv = newProvinces[reinforcement.from];
@@ -676,6 +682,8 @@ export default function SengokuMap() {
             attackerBlocks.push(block);
           });
           
+          console.log('attackerBlocks before sorting:', attackerBlocks.map(b => b.map(m => m.clan)));
+          
           // Sort blocks by earliest commit time
           attackerBlocks.sort((a, b) => {
             const aEarliest = Math.min(...a.map(m => m.committedAt || Infinity));
@@ -683,21 +691,24 @@ export default function SengokuMap() {
             return aEarliest - bEarliest;
           });
           
-          // Check if defender is allied with any attacker
-          const defenderAllies = attackerBlocks.find(block => 
+          // Check if defender is allied with any attacker (these become defender allies)
+          const defenderAlliesBlock = attackerBlocks.find(block => 
             block.some(m => areAllied(m.clan, targetProv.owner))
           );
+          
+          console.log('defenderAlliesBlock:', defenderAlliesBlock?.map(m => m.clan));
           
           // Track defender allies for battle display
           const defenderAllyClans = [];
           const defenderArmyBreakdown = [];
           
-          if (defenderAllies) {
+          if (defenderAlliesBlock) {
             // Can't attack your ally! Treat as reinforcement
-            defenderAllies.forEach(m => {
+            defenderAlliesBlock.forEach(m => {
               const armyCount = m.armies || 1;
               const src = newProvinces[m.from];
               const available = getClanArmies(src, m.clan);
+              console.log(`Processing defender ally ${m.clan}: armyCount=${armyCount}, available=${available}`);
               if (available >= armyCount) {
                 newProvinces[destProvId] = addArmiesToProvince(newProvinces[destProvId], m.clan, armyCount);
                 newProvinces[m.from] = removeArmiesFromProvince(src, m.clan, armyCount);
@@ -710,18 +721,23 @@ export default function SengokuMap() {
               }
             });
             // Remove this block from attackers
-            const idx = attackerBlocks.indexOf(defenderAllies);
+            const idx = attackerBlocks.indexOf(defenderAlliesBlock);
             if (idx > -1) attackerBlocks.splice(idx, 1);
           }
+          
+          console.log('attackerBlocks after removing defender allies:', attackerBlocks.map(b => b.map(m => m.clan)));
           
           // Refresh targetProv after reinforcements
           targetProv = newProvinces[destProvId];
           
           // Add defender's own armies to breakdown
           const defenderOwnArmies = getClanArmies(targetProv, targetProv.owner);
+          console.log('defenderOwnArmies:', defenderOwnArmies);
           if (defenderOwnArmies > 0) {
             defenderArmyBreakdown.unshift({ clan: targetProv.owner, armies: defenderOwnArmies });
           }
+          
+          console.log('defenderArmyBreakdown:', defenderArmyBreakdown);
           
           if (attackerBlocks.length > 0) {
             // First alliance block attacks, others wait
