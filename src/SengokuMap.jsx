@@ -341,10 +341,24 @@ export default function SengokuMap() {
     remainingByDest.forEach((destMoves, destProvId) => {
       const targetProv = newProvinces[destProvId];
       
-      // Get unique clans moving to this destination
+      // Merge moves from same clan to same destination (combine armies)
       const clanMoves = new Map();
       destMoves.forEach(m => {
-        if (!clanMoves.has(m.clan)) clanMoves.set(m.clan, m);
+        if (clanMoves.has(m.clan)) {
+          const existing = clanMoves.get(m.clan);
+          existing.armies = (existing.armies || 1) + (m.armies || 1);
+          // Keep earliest commit time
+          if ((m.committedAt || 0) < (existing.committedAt || Infinity)) {
+            existing.committedAt = m.committedAt;
+          }
+          // Track all source provinces for army deduction
+          if (!existing.allFroms) existing.allFroms = [existing.from];
+          existing.allFroms.push(m.from);
+          existing.allArmyCounts = existing.allArmyCounts || [existing.originalArmies || 1];
+          existing.allArmyCounts.push(m.armies || 1);
+        } else {
+          clanMoves.set(m.clan, { ...m, originalArmies: m.armies || 1 });
+        }
       });
       
       const uniqueClans = Array.from(clanMoves.values());
@@ -370,12 +384,24 @@ export default function SengokuMap() {
             text: `✓ ${CLANS[firstMove.clan]?.name} claims ${PROVINCE_DATA[destProvId]?.name} (first to commit)`
           });
           
-          // Deduct armies from all challengers
+          // Deduct armies from all challengers (handle multiple source provinces per clan)
           challengers.forEach(m => {
-            const src = newProvinces[m.from];
-            const armyCount = m.armies || 1;
-            if (src.armies >= armyCount) {
-              newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+            if (m.allFroms) {
+              // Multiple sources - deduct from each
+              m.allFroms.forEach((fromProv, idx) => {
+                const src = newProvinces[fromProv];
+                const armyCount = m.allArmyCounts?.[idx] || 1;
+                if (src && src.armies >= armyCount) {
+                  newProvinces[fromProv] = { ...src, armies: src.armies - armyCount };
+                }
+              });
+            } else {
+              // Single source
+              const src = newProvinces[m.from];
+              const armyCount = m.armies || 1;
+              if (src && src.armies >= armyCount) {
+                newProvinces[m.from] = { ...src, armies: src.armies - armyCount };
+              }
             }
           });
           
@@ -753,8 +779,8 @@ export default function SengokuMap() {
           text: `⚔️ ${CLANS[winner]?.name} continues to ${PROVINCE_DATA[winnerDest]?.name} - faces ${CLANS[targetProv.owner]?.name}!`
         });
       }
-    } else {
-      // Regular attack battle
+    } else if (battle.type === 'attack') {
+      // Regular attack battle (not collision, not elimination)
       if (winner === battle.attacker) {
         // Attacker wins - takes the province
         newProvinces[battle.province] = { 
@@ -1301,10 +1327,15 @@ export default function SengokuMap() {
             const owned = prov.owner !== 'uncontrolled';
             
             // Check if there's an active battle at this province
-            const battle = activeBattles.find(b => b.province === provId);
+            const battle = activeBattles.find(b => b.province === provId && b.type !== 'bye');
             
             // Check if there's a pending attack at this province
             const pending = pendingAttacks.find(p => p.to === provId);
+            
+            // Get all armies contesting this province in bracket (byes + elimination battles)
+            const bracketArmies = activeBattles.filter(b => 
+              b.bracketTarget === provId || (b.province === provId && (b.type === 'elimination' || b.type === 'bye'))
+            );
             
             // Manual position offsets for specific provinces
             const labelOffsets = {
@@ -1322,12 +1353,20 @@ export default function SengokuMap() {
             const cx = absPos?.x ?? (c.x + offset.x);
             const cy = absPos?.y ?? (c.y + offset.y);
             
+            // Collect all unique clans contesting this province
+            const contestingClans = new Set();
+            bracketArmies.forEach(b => {
+              if (b.attacker) contestingClans.add(b.attacker);
+              if (b.defender) contestingClans.add(b.defender);
+            });
+            const hasMultipleContestants = contestingClans.size > 0;
+            
             return (
               <g key={provId} style={{ pointerEvents: 'none' }}>
-                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0) - (battle || pending ? 10 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
+                {isZoomedIn && <text x={cx} y={cy - (owned && prov.armies > 0 ? 6 : 0) - (battle || pending || hasMultipleContestants ? 10 : 0)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="600" fill={S.parchment} letterSpacing="0.5" style={{ textShadow: '1px 1px 2px #000, -1px -1px 2px #000' }}>{PROVINCE_DATA[provId]?.name.toUpperCase()}</text>}
                 
                 {/* Active Battle Indicator - show both armies clashing */}
-                {battle && (
+                {battle && battle.type !== 'bye' && (
                   <g>
                     {/* Battle crossed swords icon */}
                     <text x={cx} y={cy - (isZoomedIn ? 2 : 8)} textAnchor="middle" dominantBaseline="middle" fontSize="10" style={{ filter: 'drop-shadow(0 0 2px #000)' }}>⚔️</text>
@@ -1339,10 +1378,28 @@ export default function SengokuMap() {
                     </g>
                     
                     {/* Defender banner (right) */}
-                    <g>
-                      <path d={`M${cx + 6} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.defender]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
-                      <text x={cx + 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.defenderArmies}</text>
-                    </g>
+                    {battle.defender && (
+                      <g>
+                        <path d={`M${cx + 6} ${cy + (isZoomedIn ? 6 : 0)} h12 v8 l-3 -2 l-3 2 l-3 -2 l-3 2 v-8 z`} fill={CLANS[battle.defender]?.color} stroke="#000" strokeWidth="1" filter="url(#shadow)" />
+                        <text x={cx + 12} y={cy + (isZoomedIn ? 11 : 5)} textAnchor="middle" dominantBaseline="middle" fontSize="6" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{battle.defenderArmies}</text>
+                      </g>
+                    )}
+                    
+                    {/* Show waiting armies below if there's a bracket */}
+                    {bracketArmies.length > 1 && (
+                      <g>
+                        {Array.from(contestingClans).filter(c => c !== battle.attacker && c !== battle.defender).map((clanId, idx) => {
+                          const armyData = bracketArmies.find(b => b.attacker === clanId || b.defender === clanId);
+                          const armies = armyData?.attacker === clanId ? armyData.attackerArmies : armyData?.defenderArmies;
+                          return (
+                            <g key={clanId}>
+                              <path d={`M${cx - 18 + (idx * 14)} ${cy + (isZoomedIn ? 20 : 14)} h10 v6 l-2.5 -1.5 l-2.5 1.5 l-2.5 -1.5 l-2.5 1.5 v-6 z`} fill={CLANS[clanId]?.color} stroke={S.gold} strokeWidth="0.5" strokeDasharray="1,1" opacity="0.7" />
+                              <text x={cx - 13 + (idx * 14)} y={cy + (isZoomedIn ? 24 : 18)} textAnchor="middle" dominantBaseline="middle" fontSize="5" fontWeight="bold" fill="#fff" style={{ textShadow: '0 0 2px #000' }}>{armies || '?'}</text>
+                            </g>
+                          );
+                        })}
+                      </g>
+                    )}
                   </g>
                 )}
                 
