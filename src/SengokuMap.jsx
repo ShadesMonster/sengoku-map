@@ -178,10 +178,20 @@ export default function SengokuMap() {
       Object.entries(CLANS).forEach(([cid, c]) => {
         if (c.provinces?.includes(id)) owner = cid;
       });
-      init[id] = { ...p, id, owner, armies: owner !== 'uncontrolled' ? 1 : 0, rallyCapacity: 100 };
+      init[id] = { ...p, id, owner, armies: owner !== 'uncontrolled' ? 1 : 0 };
     });
     return init;
   });
+  
+  // Clan-level data (rally caps, etc)
+  const [clanData, setClanData] = useState(() => {
+    const data = {};
+    Object.keys(CLANS).forEach(clanId => {
+      data[clanId] = { rallyCap: 60 }; // Default 60 = 3 armies max
+    });
+    return data;
+  });
+  
   const [clan, setClan] = useState('oda');
   const [admin, setAdmin] = useState(false);
   const [committedMoves, setCommittedMoves] = useState([]);
@@ -195,6 +205,7 @@ export default function SengokuMap() {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeBattles, setActiveBattles] = useState([]);
   const [pendingAttacks, setPendingAttacks] = useState([]);
+  const [pendingLevies, setPendingLevies] = useState([]); // { id, province, clan }
   const [lastProcessedPhase, setLastProcessedPhase] = useState(null);
   const [moveLog, setMoveLog] = useState([]);
   const [armySplitCount, setArmySplitCount] = useState(1);
@@ -207,10 +218,28 @@ export default function SengokuMap() {
     return () => clearInterval(interval);
   }, []);
 
-  // Process moves when battle phase starts
+  // Process moves and levies when battle phase starts
   useEffect(() => {
-    if (currentPhase.phase === 'BATTLE' && lastProcessedPhase !== `${week}-BATTLE` && committedMoves.length > 0) {
-      processMovesIntoBattles();
+    if (currentPhase.phase === 'BATTLE' && lastProcessedPhase !== `${week}-BATTLE`) {
+      // Spawn pending levies first
+      if (pendingLevies.length > 0) {
+        const newProvinces = { ...provinces };
+        pendingLevies.forEach(levy => {
+          if (newProvinces[levy.province] && newProvinces[levy.province].owner === levy.clan) {
+            newProvinces[levy.province] = {
+              ...newProvinces[levy.province],
+              armies: newProvinces[levy.province].armies + 1
+            };
+          }
+        });
+        setProvinces(newProvinces);
+        setPendingLevies([]);
+      }
+      
+      // Then process moves if any
+      if (committedMoves.length > 0) {
+        processMovesIntoBattles();
+      }
       setLastProcessedPhase(`${week}-BATTLE`);
     }
   }, [currentPhase.phase, week]);
@@ -733,11 +762,13 @@ export default function SengokuMap() {
       try {
         const s = JSON.parse(saved);
         if (s.provinces) setProvinces(s.provinces);
+        if (s.clanData) setClanData(s.clanData);
         if (s.week) setWeek(s.week);
         if (s.committedMoves) setCommittedMoves(s.committedMoves);
         if (s.pendingMoves) setPendingMoves(s.pendingMoves);
         if (s.activeBattles) setActiveBattles(s.activeBattles);
         if (s.pendingAttacks) setPendingAttacks(s.pendingAttacks);
+        if (s.pendingLevies) setPendingLevies(s.pendingLevies);
         if (s.lastProcessedPhase) setLastProcessedPhase(s.lastProcessedPhase);
         if (s.moveLog) setMoveLog(s.moveLog);
       } catch (e) {}
@@ -745,8 +776,8 @@ export default function SengokuMap() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, lastProcessedPhase, moveLog }));
-  }, [provinces, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, lastProcessedPhase, moveLog]);
+    localStorage.setItem('sengoku-game-state', JSON.stringify({ provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog }));
+  }, [provinces, clanData, week, committedMoves, pendingMoves, activeBattles, pendingAttacks, pendingLevies, lastProcessedPhase, moveLog]);
 
   const resolveBattle = (battleId, winner) => {
     const battle = activeBattles.find(b => b.id === battleId);
@@ -1827,19 +1858,144 @@ export default function SengokuMap() {
           </div>
           
           <div style={{ padding: 20, flex: 1, overflowY: 'auto' }}>
-            <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
-              <div className="flex justify-between items-center">
-                <div><p style={{ color: S.parchment, fontWeight: '600' }}>駐留軍</p><p style={{ color: S.parchmentDark, fontSize: 10 }}>Armies</p></div>
-                <span style={{ color: S.gold, fontSize: 28, fontWeight: '700' }}>{provinces[selected].armies}</span>
-              </div>
-            </div>
-
-            <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
-              <div className="flex justify-between items-center">
-                <div><p style={{ color: S.parchment, fontWeight: '600' }}>動員力</p><p style={{ color: S.parchmentDark, fontSize: 10 }}>Rally Cap</p></div>
-                <span style={{ color: S.parchment, fontSize: 24, fontWeight: '600' }}>{provinces[selected].rallyCapacity || 0}</span>
-              </div>
-            </div>
+            {/* Army / Rally Display */}
+            {(() => {
+              const prov = provinces[selected];
+              const provOwner = prov.owner;
+              
+              // Clan-wide rally cap
+              const clanRallyCap = clanData[provOwner]?.rallyCap || 0;
+              const maxArmiesClanWide = Math.floor(clanRallyCap / 20);
+              
+              // Count total armies this clan has across all provinces
+              const totalClanArmies = Object.values(provinces).filter(p => p.owner === provOwner).reduce((sum, p) => sum + (p.armies || 0), 0);
+              
+              // Count pending levies for this clan (across all their provinces)
+              const totalPendingLevies = pendingLevies.filter(l => l.clan === provOwner).length;
+              
+              // How many more can this clan raise overall
+              const clanCanRaise = maxArmiesClanWide - totalClanArmies - totalPendingLevies;
+              
+              // Check if THIS province already has a pending levy
+              const thisProvHasLevyQueued = pendingLevies.some(l => l.province === selected && l.clan === provOwner);
+              
+              // Can raise here if: clan has capacity AND this province doesn't already have a pending levy
+              const canRaiseHere = clanCanRaise > 0 && !thisProvHasLevyQueued;
+              
+              const currentArmies = prov.armies || 0;
+              const isOwner = provOwner === clan;
+              
+              return (
+                <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
+                  <div className="flex justify-between items-center mb-3">
+                    <div>
+                      <p style={{ color: S.parchment, fontWeight: '600' }}>軍勢</p>
+                      <p style={{ color: S.parchmentDark, fontSize: 10 }}>Armies Here</p>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ color: S.gold, fontSize: 28, fontWeight: '700' }}>{currentArmies}</span>
+                      {thisProvHasLevyQueued && <span style={{ color: '#4a7c23', fontSize: 16 }}> +1</span>}
+                    </div>
+                  </div>
+                  
+                  {/* Clan-wide capacity bar */}
+                  <div style={{ background: 'rgba(0,0,0,0.3)', height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 8 }}>
+                    <div style={{ 
+                      width: `${maxArmiesClanWide > 0 ? (totalClanArmies / maxArmiesClanWide) * 100 : 0}%`, 
+                      height: '100%', 
+                      background: S.gold,
+                      transition: 'width 0.3s'
+                    }} />
+                    {totalPendingLevies > 0 && (
+                      <div style={{ 
+                        width: `${maxArmiesClanWide > 0 ? (totalPendingLevies / maxArmiesClanWide) * 100 : 0}%`, 
+                        height: '100%', 
+                        background: '#4a7c23',
+                        marginTop: -8,
+                        marginLeft: `${maxArmiesClanWide > 0 ? (totalClanArmies / maxArmiesClanWide) * 100 : 0}%`,
+                        transition: 'width 0.3s'
+                      }} />
+                    )}
+                  </div>
+                  
+                  <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 4 }}>
+                    {CLANS[provOwner]?.name} 動員力: {clanRallyCap} men
+                  </p>
+                  <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8 }}>
+                    Clan armies: {totalClanArmies}{totalPendingLevies > 0 ? ` +${totalPendingLevies}` : ''} / {maxArmiesClanWide}
+                  </p>
+                  
+                  {/* Raise Levy Button - only during planning, only for owner, only if no levy already queued here */}
+                  {isOwner && currentPhase.phase === 'PLANNING' && canRaiseHere && (
+                    <button 
+                      onClick={() => setPendingLevies([...pendingLevies, { 
+                        id: Date.now(), 
+                        province: selected, 
+                        clan: provOwner 
+                      }])}
+                      style={{ 
+                        width: '100%', 
+                        padding: 10, 
+                        background: 'linear-gradient(180deg, #4a3728 0%, #2d1f15 100%)', 
+                        border: `2px solid ${S.gold}`, 
+                        color: S.gold, 
+                        fontSize: 12, 
+                        fontWeight: '600',
+                        marginTop: 8
+                      }}
+                    >
+                      召集 Raise Levy
+                    </button>
+                  )}
+                  
+                  {/* Show pending levy at this province */}
+                  {thisProvHasLevyQueued && (
+                    <div style={{ marginTop: 8, padding: 8, background: 'rgba(45,80,22,0.2)', border: '1px solid #4a7c23' }}>
+                      <p style={{ color: '#4a7c23', fontSize: 10 }}>
+                        ⏳ Levy will spawn when battles begin
+                      </p>
+                      {isOwner && (
+                        <button 
+                          onClick={() => {
+                            const toRemove = pendingLevies.find(l => l.province === selected && l.clan === provOwner);
+                            if (toRemove) setPendingLevies(pendingLevies.filter(l => l.id !== toRemove.id));
+                          }}
+                          style={{ 
+                            marginTop: 6, 
+                            padding: '4px 8px', 
+                            background: S.red, 
+                            border: 'none', 
+                            color: S.parchment, 
+                            fontSize: 10 
+                          }}
+                        >
+                          Cancel Levy
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Info messages */}
+                  {isOwner && currentPhase.phase === 'PLANNING' && !canRaiseHere && thisProvHasLevyQueued && (
+                    <p style={{ color: S.parchmentDark, fontSize: 10, marginTop: 8, fontStyle: 'italic' }}>
+                      One levy per province per turn
+                    </p>
+                  )}
+                  
+                  {isOwner && currentPhase.phase === 'PLANNING' && clanCanRaise <= 0 && !thisProvHasLevyQueued && (
+                    <p style={{ color: S.red, fontSize: 10, marginTop: 8 }}>
+                      ⚠️ Clan at maximum capacity
+                    </p>
+                  )}
+                  
+                  {maxArmiesClanWide === 0 && (
+                    <p style={{ color: S.parchmentDark, fontSize: 10, marginTop: 8, fontStyle: 'italic' }}>
+                      No rally capacity set (admin)
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Battle Type */}
             {PROVINCE_DATA[selected]?.battleType && (
@@ -1987,7 +2143,32 @@ export default function SengokuMap() {
                   <button onClick={() => provinces[selected].armies > 0 && setProvinces({ ...provinces, [selected]: { ...provinces[selected], armies: provinces[selected].armies - 1 } })} style={{ flex: 1, padding: 8, background: S.red, border: 'none', color: S.parchment, fontSize: 11 }}>− Army</button>
                   <button onClick={() => setProvinces({ ...provinces, [selected]: { ...provinces[selected], armies: provinces[selected].armies + 1 } })} style={{ flex: 1, padding: 8, background: '#2d5016', border: 'none', color: S.parchment, fontSize: 11 }}>+ Army</button>
                 </div>
-                <input type="number" value={provinces[selected].rallyCapacity || 0} onChange={e => setProvinces({ ...provinces, [selected]: { ...provinces[selected], rallyCapacity: parseInt(e.target.value) || 0 } })} style={{ width: '100%', padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12, marginBottom: 12 }} placeholder="Rally Capacity" />
+                
+                {/* Clan Rally Cap (for the clan that owns this province) */}
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 4 }}>
+                    {CLANS[provinces[selected].owner]?.name} Rally Cap:
+                  </p>
+                  <div className="flex gap-2">
+                    <input 
+                      type="number" 
+                      value={clanData[provinces[selected].owner]?.rallyCap || 0} 
+                      onChange={e => setClanData({ 
+                        ...clanData, 
+                        [provinces[selected].owner]: { 
+                          ...clanData[provinces[selected].owner], 
+                          rallyCap: parseInt(e.target.value) || 0 
+                        } 
+                      })} 
+                      style={{ flex: 1, padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12 }} 
+                      placeholder="Rally Cap (men)" 
+                    />
+                    <span style={{ color: S.parchmentDark, fontSize: 10, alignSelf: 'center' }}>
+                      = {Math.floor((clanData[provinces[selected].owner]?.rallyCap || 0) / 20)} armies
+                    </span>
+                  </div>
+                </div>
+                
                 {committedMoves.length > 0 && (
                   <button onClick={processMovesIntoBattles} style={{ width: '100%', padding: 10, background: S.red, border: 'none', color: S.parchment, fontSize: 12, fontWeight: '600', marginBottom: 8 }}>
                     ⚔️ Process Moves ({committedMoves.length})
