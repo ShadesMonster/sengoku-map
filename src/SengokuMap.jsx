@@ -2606,7 +2606,6 @@ export default function SengokuMap() {
                      battle.type === 'elimination' ? `Elimination Round ${battle.bracketRound || 1}` :
                      battle.type === 'bye' ? 'Bye - Waiting' :
                      BATTLE_TYPES[battle.battleType]?.desc}
-                    </div>
                   </div>
                   
                   {/* Army Count */}
