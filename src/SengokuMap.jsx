@@ -1702,24 +1702,23 @@ export default function SengokuMap() {
             }}
           >
             📊
-          </button> 
-              border: `1px solid ${S.woodLight}`, 
-              color: S.parchment, 
-              fontSize: 14, 
-              marginTop: 8,
-              animation: getPendingRequests(clan).length > 0 && !showDashboard ? 'pulse 1.5s infinite' : 'none',
-              boxShadow: getPendingRequests(clan).length > 0 && !showDashboard ? `0 0 10px ${S.gold}` : 'none',
-            }} 
-            title="Clan Dashboard"
-          >
-            🏯
-            {getPendingRequests(clan).length > 0 && !showDashboard && (
-              <span style={{ position: 'absolute', top: -4, right: -4, background: S.red, color: '#fff', fontSize: 10, borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {getPendingRequests(clan).length}
-              </span>
-            )}
           </button>
-          <button onClick={() => { setShowHistory(!showHistory); setShowDashboard(false); }} style={{ width: 32, height: 32, background: showHistory ? S.gold : S.woodMid, border: `1px solid ${S.woodLight}`, color: showHistory ? S.woodDark : S.parchment, fontSize: 14 }} title="History">📜</button>
+          <button 
+            onClick={() => { setShowHistory(!showHistory); setShowDashboard(false); }} 
+            style={{ 
+              width: 36, 
+              height: 36, 
+              background: showHistory ? S.gold : S.bgSecondary,
+              border: `1px solid ${showHistory ? S.gold : S.border}`,
+              borderRadius: 8,
+              color: showHistory ? S.bgPrimary : S.textSecondary,
+              fontSize: 14,
+              cursor: 'pointer',
+            }} 
+            title="History"
+          >
+            📜
+          </button>
         </div>
         
         {/* CSS for pulse animation */}
