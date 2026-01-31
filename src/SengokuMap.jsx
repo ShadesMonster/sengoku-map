@@ -241,7 +241,7 @@ export default function SengokuMap() {
   const [timeUntilDeadline, setTimeUntilDeadline] = useState(getTimeUntilDeadline());
   const [currentPhase, setCurrentPhase] = useState(getCurrentPhase());
   const [tooltip, setTooltip] = useState(null);
-  const [viewBox, setViewBox] = useState({ x: 50, y: 100, w: 550, h: 550 });
+  const [viewBox, setViewBox] = useState({ x: 100, y: 150, w: 450, h: 450 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeBattles, setActiveBattles] = useState([]);
@@ -1539,7 +1539,13 @@ export default function SengokuMap() {
 
   return (
     <div className="w-full h-screen flex" style={{ background: '#1a1a1a', fontFamily: "'Cinzel', serif" }}>
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative overflow-hidden" style={{
+        background: `
+          radial-gradient(ellipse at center, #2a2520 0%, #1a1510 70%, #0d0a08 100%),
+          url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")
+        `,
+        backgroundBlendMode: 'overlay',
+      }}>
         
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10" style={{ background: `linear-gradient(180deg, ${S.woodMid} 0%, ${S.woodDark} 100%)`, borderBottom: `3px solid ${S.woodLight}` }}>
@@ -1592,10 +1598,11 @@ export default function SengokuMap() {
 
         {/* Zoom + History + Dashboard */}
         <div className="absolute top-24 right-4 z-20 flex flex-col gap-1">
-          {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) })) },
-            { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) })) },
-            { l: '◯', a: () => setViewBox({ x: 50, y: 100, w: 550, h: 550 }) }].map((b, i) => (
-            <button key={i} onClick={b.a} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
+          {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(150, v.w * 0.8), h: Math.max(150, v.h * 0.8) })), t: 'Zoom In' },
+            { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(800, v.w * 1.2), h: Math.min(800, v.h * 1.2) })), t: 'Zoom Out' },
+            { l: '◯', a: () => setViewBox({ x: 100, y: 150, w: 450, h: 450 }), t: 'Reset View' },
+            { l: '▢', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }), t: 'Fit All' }].map((b, i) => (
+            <button key={i} onClick={b.a} title={b.t} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
           ))}
           <button 
             onClick={() => { setShowDashboard(!showDashboard); setShowHistory(false); }} 
@@ -2608,7 +2615,7 @@ export default function SengokuMap() {
 
       {/* Side Panel */}
       {selected && provinces[selected] && (
-        <div style={{ width: 320, background: `linear-gradient(180deg, ${S.woodDark} 0%, #1a0f0a 100%)`, borderLeft: `4px solid ${S.woodLight}`, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: 280, background: `linear-gradient(180deg, ${S.woodDark} 0%, #1a0f0a 100%)`, borderLeft: `4px solid ${S.woodLight}`, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: 20, background: `linear-gradient(135deg, ${getColor(selected)}40, transparent)`, borderBottom: `3px solid ${S.woodLight}` }}>
             <h2 style={{ color: S.parchment, fontSize: 24, fontWeight: '700' }}>{provinces[selected].name}</h2>
             <p style={{ color: S.parchmentDark, fontSize: 12 }}>領主 <span style={{ color: getColor(selected), fontWeight: '600' }}>{CLANS[provinces[selected].owner]?.name || 'None'}</span></p>
