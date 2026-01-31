@@ -153,32 +153,15 @@ const getCurrentPhase = () => {
   return { phase: 'PLANNING', label: 'PLANNING', color: '#2d5016' };
 };
 
-// Style constants - Modern dark theme
+// Style constants
 const S = {
-  // Backgrounds
-  bgPrimary: '#0f0f0f',
-  bgSecondary: '#1a1a1a',
-  bgTertiary: '#262626',
-  bgHover: '#333333',
-  // Wood theme for accents
-  woodDark: '#1c1512',
-  woodMid: '#2d2420',
-  woodLight: '#4a3f38',
-  // Text
-  textPrimary: '#f5f5f5',
-  textSecondary: '#a3a3a3',
-  textMuted: '#737373',
-  // Parchment (keeping for map elements)
-  parchment: '#e7e5e4',
-  parchmentDark: '#a8a29e',
-  // Semantic
-  red: '#dc2626',
-  gold: '#fbbf24',
-  green: '#22c55e',
-  blue: '#3b82f6',
-  // Borders
-  border: '#333333',
-  borderLight: '#404040',
+  woodDark: '#2c1810',
+  woodMid: '#4a3728',
+  woodLight: '#6b4c3a',
+  parchment: '#d4c4a8',
+  parchmentDark: '#b8a88c',
+  red: '#8B0000',
+  gold: '#ffd700',
 };
 
 export default function SengokuMap() {
@@ -1555,170 +1538,88 @@ export default function SengokuMap() {
   const clanCommitted = committedMoves.filter(m => m.clan === clan);
 
   return (
-    <div className="w-full h-screen flex" style={{ background: S.bgPrimary, fontFamily: "'Inter', -apple-system, system-ui, sans-serif" }}>
+    <div className="w-full h-screen flex" style={{ background: '#1a1a1a', fontFamily: "'Cinzel', serif" }}>
       <div className="flex-1 relative overflow-hidden">
         
-        {/* Header - Cleaner modern design */}
-        <div className="absolute top-0 left-0 right-0 z-10" style={{ 
-          background: 'linear-gradient(180deg, rgba(15,15,15,0.98) 0%, rgba(15,15,15,0.9) 80%, transparent 100%)',
-          padding: '12px 20px',
-        }}>
-          <div className="flex items-center gap-6">
-            {/* Logo */}
+        {/* Header */}
+        <div className="absolute top-0 left-0 right-0 z-10" style={{ background: `linear-gradient(180deg, ${S.woodMid} 0%, ${S.woodDark} 100%)`, borderBottom: `3px solid ${S.woodLight}` }}>
+          <div className="flex items-center px-6 py-3 gap-6">
             <div className="flex items-center gap-3">
-              <span style={{ color: S.gold, fontSize: '24px', fontWeight: '700' }}>戦国</span>
-              <div style={{ width: 1, height: 24, background: S.border }} />
-              <span style={{ color: S.textSecondary, fontSize: '11px', letterSpacing: '2px', fontWeight: 500 }}>SENGOKU</span>
+              <span style={{ color: S.gold, fontSize: '28px', fontWeight: '700' }}>戦国</span>
+              <span style={{ color: S.parchment, fontSize: '14px', letterSpacing: '3px' }}>SENGOKU</span>
             </div>
             
-            {/* Week Badge */}
-            <div style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 8,
-              padding: '6px 14px', 
-              background: S.bgTertiary, 
-              borderRadius: 6,
-              border: `1px solid ${S.border}`,
-            }}>
-              <span style={{ color: S.textMuted, fontSize: 11 }}>Week</span>
-              <span style={{ color: S.textPrimary, fontSize: 16, fontWeight: 700 }}>{week}</span>
+            <div className="relative flex items-center justify-center" style={{ width: '60px', height: '60px' }}>
+              <svg viewBox="0 0 60 60" className="absolute inset-0">
+                <circle cx="30" cy="30" r="25" fill="none" stroke={S.gold} strokeWidth="2" strokeDasharray="4 2" />
+              </svg>
+              <div className="text-center">
+                <div style={{ color: S.parchmentDark, fontSize: '8px' }}>WEEK</div>
+                <div style={{ color: S.gold, fontSize: '20px', fontWeight: '700' }}>{week}</div>
+              </div>
             </div>
 
-            {/* Phase Badge */}
             <div style={{ 
-              padding: '8px 16px', 
-              borderRadius: 6,
-              background: currentPhase.phase === 'BATTLE' ? 'rgba(220,38,38,0.15)' : 'rgba(34,197,94,0.15)',
-              border: `1px solid ${currentPhase.phase === 'BATTLE' ? S.red : S.green}`,
+              background: currentPhase.color, 
+              padding: '10px 24px', 
+              clipPath: 'polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+              border: currentPhase.phase === 'BATTLE' ? '1px solid #ff4444' : '1px solid #4a7c23'
             }}>
-              <span style={{ 
-                color: currentPhase.phase === 'BATTLE' ? S.red : S.green, 
-                fontSize: 12, 
-                fontWeight: 600, 
-                letterSpacing: '0.5px' 
-              }}>
-                {currentPhase.label}
-              </span>
+              <span style={{ color: '#fff', fontSize: '13px', fontWeight: '700', letterSpacing: '2px' }}>{currentPhase.label}</span>
             </div>
 
-            {/* Deadline Timer */}
             {currentPhase.phase === 'PLANNING' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: S.textMuted, fontSize: 11 }}>Deadline</span>
-                <span style={{ 
-                  color: S.gold, 
-                  fontSize: 13, 
-                  fontWeight: 600,
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
-                  {timeUntilDeadline.days}d {timeUntilDeadline.hours}h {timeUntilDeadline.minutes}m
-                </span>
+              <div style={{ color: S.parchmentDark, fontSize: '11px' }}>
+                <span style={{ opacity: 0.7 }}>Orders lock: </span>
+                <span style={{ color: S.gold, fontFamily: 'monospace' }}>{timeUntilDeadline.days}d {timeUntilDeadline.hours}h {timeUntilDeadline.minutes}m</span>
               </div>
             )}
 
             <div className="flex-1" />
 
-            {/* Clan Selector */}
-            <select 
-              value={clan} 
-              onChange={e => setClan(e.target.value)} 
-              style={{ 
-                background: S.bgTertiary, 
-                border: `2px solid ${CLANS[clan]?.color}`, 
-                color: S.textPrimary, 
-                padding: '8px 16px', 
-                borderRadius: 6,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
+            <select value={clan} onChange={e => setClan(e.target.value)} style={{ background: S.woodDark, border: `1px solid ${S.woodLight}`, color: CLANS[clan]?.color, padding: '6px 12px', fontFamily: 'inherit', fontWeight: '600' }}>
               {Object.entries(CLANS).filter(([id]) => id !== 'uncontrolled').map(([id, c]) => (
-                <option key={id} value={id} style={{ background: S.bgSecondary, color: S.textPrimary }}>{c.name}</option>
+                <option key={id} value={id} style={{ background: S.woodDark, color: S.parchment }}>{c.name}</option>
               ))}
             </select>
 
-            <button 
-              onClick={() => setAdmin(!admin)} 
-              style={{ 
-                background: admin ? 'rgba(220,38,38,0.15)' : S.bgTertiary, 
-                border: `1px solid ${admin ? S.red : S.border}`, 
-                color: admin ? S.red : S.textSecondary, 
-                padding: '8px 14px', 
-                fontSize: 11,
-                fontWeight: 600,
-                borderRadius: 6,
-                cursor: 'pointer',
-              }}
-            >
-              {admin ? '⚙ ADMIN' : 'ADMIN'}
+            <button onClick={() => setAdmin(!admin)} style={{ background: admin ? S.red : S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, padding: '6px 14px', fontSize: '11px' }}>
+              {admin ? 'ADMIN ON' : 'ADMIN'}
             </button>
           </div>
         </div>
 
-        {/* Zoom + History + Dashboard - Cleaner pill buttons */}
-        <div className="absolute top-20 right-4 z-20 flex flex-col gap-2">
-          <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            background: S.bgSecondary, 
-            borderRadius: 8, 
-            border: `1px solid ${S.border}`,
-            overflow: 'hidden',
-          }}>
-            {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) })) },
-              { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) })) },
-              { l: '⌂', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }) }].map((b, i) => (
-              <button 
-                key={i} 
-                onClick={b.a} 
-                style={{ 
-                  width: 36, 
-                  height: 36, 
-                  background: 'transparent', 
-                  border: 'none',
-                  borderBottom: i < 2 ? `1px solid ${S.border}` : 'none',
-                  color: S.textSecondary, 
-                  fontSize: 16,
-                  cursor: 'pointer',
-                }}
-              >
-                {b.l}
-              </button>
-            ))}
-          </div>
+        {/* Zoom + History + Dashboard */}
+        <div className="absolute top-24 right-4 z-20 flex flex-col gap-1">
+          {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) })) },
+            { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) })) },
+            { l: '◯', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }) }].map((b, i) => (
+            <button key={i} onClick={b.a} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
+          ))}
           <button 
             onClick={() => { setShowDashboard(!showDashboard); setShowHistory(false); }} 
             style={{ 
-              width: 36, 
-              height: 36, 
-              background: showDashboard ? CLANS[clan]?.color : S.bgSecondary,
-              border: `1px solid ${showDashboard ? CLANS[clan]?.color : S.border}`,
-              borderRadius: 8,
-              color: showDashboard ? '#fff' : S.textSecondary,
-              fontSize: 14,
-              cursor: 'pointer',
-            }}
-          >
-            📊
-          </button>
-          <button 
-            onClick={() => { setShowHistory(!showHistory); setShowDashboard(false); }} 
-            style={{ 
-              width: 36, 
-              height: 36, 
-              background: showHistory ? S.gold : S.bgSecondary,
-              border: `1px solid ${showHistory ? S.gold : S.border}`,
-              borderRadius: 8,
-              color: showHistory ? S.bgPrimary : S.textSecondary,
-              fontSize: 14,
-              cursor: 'pointer',
+              width: 32, 
+              height: 32, 
+              background: showDashboard ? CLANS[clan]?.color : S.woodMid, 
+              border: `1px solid ${S.woodLight}`, 
+              color: S.parchment, 
+              fontSize: 14, 
+              marginTop: 8,
+              animation: getPendingRequests(clan).length > 0 && !showDashboard ? 'pulse 1.5s infinite' : 'none',
+              boxShadow: getPendingRequests(clan).length > 0 && !showDashboard ? `0 0 10px ${S.gold}` : 'none',
             }} 
-            title="History"
+            title="Clan Dashboard"
           >
-            📜
+            🏯
+            {getPendingRequests(clan).length > 0 && !showDashboard && (
+              <span style={{ position: 'absolute', top: -4, right: -4, background: S.red, color: '#fff', fontSize: 10, borderRadius: '50%', width: 16, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {getPendingRequests(clan).length}
+              </span>
+            )}
           </button>
+          <button onClick={() => { setShowHistory(!showHistory); setShowDashboard(false); }} style={{ width: 32, height: 32, background: showHistory ? S.gold : S.woodMid, border: `1px solid ${S.woodLight}`, color: showHistory ? S.woodDark : S.parchment, fontSize: 14 }} title="History">📜</button>
         </div>
         
         {/* CSS for pulse animation */}
@@ -2531,146 +2432,71 @@ export default function SengokuMap() {
 
         {/* Active Wars Panel (Admin) */}
         {admin && activeBattles.length > 0 && (
-          <div className="absolute top-20 right-4 z-20" style={{ 
-            width: 340, 
-            background: S.bgSecondary, 
-            borderRadius: 12,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-            overflow: 'hidden',
-          }}>
-            <div style={{ 
-              padding: '14px 18px', 
-              background: `linear-gradient(135deg, rgba(220,38,38,0.2), transparent)`,
-              borderBottom: `1px solid ${S.border}`,
-            }}>
-              <h3 style={{ color: S.textPrimary, fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span>⚔️</span> Active Wars ({activeBattles.length})
-              </h3>
+          <div className="absolute top-20 right-4 z-20" style={{ width: 340, background: S.woodMid, border: `3px solid ${S.red}` }}>
+            <div style={{ padding: '12px 16px', borderBottom: `2px solid ${S.red}`, background: 'rgba(139,0,0,0.3)' }}>
+              <h3 style={{ color: S.parchment, fontSize: '14px', fontWeight: '600' }}>⚔️ Active Wars ({activeBattles.length})</h3>
             </div>
-            <div style={{ padding: 12, maxHeight: 400, overflowY: 'auto' }}>
+            <div style={{ padding: 8, maxHeight: 400, overflowY: 'auto' }}>
               {activeBattles.map(battle => (
-                <div key={battle.id} style={{ 
-                  background: S.bgTertiary, 
-                  borderRadius: 8,
-                  marginBottom: 10, 
-                  padding: 14,
-                }}>
-                  {/* Battle Header */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ 
-                        color: CLANS[battle.attacker]?.color, 
-                        fontWeight: 600, 
-                        fontSize: 14,
-                      }}>
+                <div key={battle.id} style={{ background: 'rgba(0,0,0,0.3)', border: `1px solid ${S.woodLight}`, marginBottom: 10, padding: 10 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span style={{ color: CLANS[battle.attacker]?.color, fontWeight: '600', fontSize: 13 }}>
                         {CLANS[battle.attacker]?.name}
                       </span>
                       {battle.type !== 'bye' && (
                         <>
-                          <span style={{ color: S.textMuted, fontSize: 11 }}>vs</span>
-                          <span style={{ 
-                            color: CLANS[battle.defender]?.color, 
-                            fontWeight: 600, 
-                            fontSize: 14,
-                          }}>
+                          <span style={{ color: S.parchmentDark, fontSize: 10 }}>vs</span>
+                          <span style={{ color: CLANS[battle.defender]?.color, fontWeight: '600', fontSize: 13 }}>
                             {CLANS[battle.defender]?.name}
                           </span>
                         </>
                       )}
                     </div>
-                  </div>
-                  
-                  {/* Battle Info */}
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 8, 
-                    marginBottom: 10,
-                    padding: '8px 10px',
-                    background: 'rgba(0,0,0,0.2)',
-                    borderRadius: 6,
-                  }}>
-                    <span style={{ fontSize: 12 }}>{BATTLE_TYPES[battle.battleType]?.icon}</span>
-                    <div>
-                      <div style={{ color: S.textSecondary, fontSize: 11, fontWeight: 500 }}>
-                        {BATTLE_TYPES[battle.battleType]?.name}
-                      </div>
-                      <div style={{ color: S.textMuted, fontSize: 10 }}>
-                        at {PROVINCE_DATA[battle.province]?.name}
-                      </div>
+                    <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 4 }}>
+                      {battle.type === 'collision' ? '(Meeting Engagement)' : 
+                       battle.type === 'elimination' ? `(Elimination Round ${battle.bracketRound || 1})` :
+                       battle.type === 'bye' ? '(Bye - Waiting)' :
+                       '(Attackers → Defenders)'}
                     </div>
                   </div>
                   
-                  <div style={{ color: S.textMuted, fontSize: 10, marginBottom: 4 }}>
-                    {battle.type === 'collision' ? 'Meeting Engagement' : 
-                     battle.type === 'elimination' ? `Elimination Round ${battle.bracketRound || 1}` :
-                     battle.type === 'bye' ? 'Bye - Waiting' :
-                     BATTLE_TYPES[battle.battleType]?.desc}
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: 8, marginBottom: 8 }}>
+                    <div style={{ color: S.gold, fontSize: 11, fontWeight: '600' }}>
+                      {BATTLE_TYPES[battle.battleType]?.icon} {BATTLE_TYPES[battle.battleType]?.name}
+                    </div>
+                    <div style={{ color: S.parchment, fontSize: 12, marginTop: 2 }}>
+                      {battle.type === 'elimination' || battle.type === 'bye' ? 'for' : 'at'} <span style={{ fontWeight: '600' }}>{PROVINCE_DATA[battle.province]?.name}</span>
+                      {battle.bracketClaimer && (
+                        <span style={{ color: S.parchmentDark, fontSize: 10 }}> (claimed by {CLANS[battle.bracketClaimer]?.name})</span>
+                      )}
+                    </div>
+                    <div style={{ color: S.parchmentDark, fontSize: 9, marginTop: 4 }}>
+                      {BATTLE_TYPES[battle.battleType]?.desc}
+                    </div>
                   </div>
                   
-                  {/* Army Count */}
                   {battle.type !== 'bye' && (
-                    <div style={{ 
-                      display: 'flex', 
-                      justifyContent: 'center', 
-                      alignItems: 'center', 
-                      gap: 16, 
-                      marginBottom: 12,
-                      padding: '10px 0',
-                    }}>
-                      <div style={{ 
-                        textAlign: 'center',
-                        padding: '8px 16px',
-                        background: `${CLANS[battle.attacker]?.color}30`,
-                        borderRadius: 6,
-                      }}>
-                        <div style={{ color: CLANS[battle.attacker]?.color, fontSize: 20, fontWeight: 700 }}>
-                          {battle.attackerArmies}
-                        </div>
-                      </div>
-                      <div style={{ color: S.textMuted, fontSize: 12 }}>vs</div>
-                      <div style={{ 
-                        textAlign: 'center',
-                        padding: '8px 16px',
-                        background: `${CLANS[battle.defender]?.color}30`,
-                        borderRadius: 6,
-                      }}>
-                        <div style={{ color: CLANS[battle.defender]?.color, fontSize: 20, fontWeight: 700 }}>
-                          {battle.defenderArmies}
-                        </div>
-                      </div>
+                    <div style={{ color: S.parchmentDark, fontSize: 10, marginBottom: 8 }}>
+                      Armies: {battle.attackerArmies} vs {battle.defenderArmies}
                     </div>
                   )}
                   
                   {battle.type === 'bye' && (
-                    <div style={{ 
-                      color: S.gold, 
-                      fontSize: 11, 
-                      marginBottom: 10, 
-                      padding: '8px 12px',
-                      background: 'rgba(251,191,36,0.1)',
-                      borderRadius: 6,
-                      textAlign: 'center',
-                    }}>
+                    <div style={{ color: S.gold, fontSize: 10, marginBottom: 8, fontStyle: 'italic' }}>
                       ⏳ Waiting for other bracket results ({battle.attackerArmies} armies)
                     </div>
                   )}
                   
                   {/* Chain Info - what happens next */}
                   {battle.chainInfo && (
-                    <div style={{ 
-                      background: 'rgba(251,191,36,0.1)', 
-                      padding: '8px 10px', 
-                      marginBottom: 10, 
-                      fontSize: 10,
-                      borderRadius: 6,
-                    }}>
-                      <div style={{ color: S.gold, fontWeight: 600, marginBottom: 6 }}>📋 Next:</div>
+                    <div style={{ background: 'rgba(184,134,11,0.2)', border: `1px solid ${S.gold}`, padding: 6, marginBottom: 8, fontSize: 9 }}>
+                      <div style={{ color: S.gold, fontWeight: '600', marginBottom: 4 }}>📋 Next:</div>
                       <div style={{ color: CLANS[battle.attacker]?.color }}>
                         If {CLANS[battle.attacker]?.name} wins → {battle.chainInfo.attackerWinsNext}
                       </div>
                       {battle.defender && (
-                        <div style={{ color: CLANS[battle.defender]?.color, marginTop: 4 }}>
+                        <div style={{ color: CLANS[battle.defender]?.color, marginTop: 2 }}>
                           If {CLANS[battle.defender]?.name} wins → {battle.chainInfo.defenderWinsNext}
                         </div>
                       )}
@@ -2679,23 +2505,17 @@ export default function SengokuMap() {
                   
                   {/* Waiting Attackers Queue */}
                   {battle.waitingAttackers && battle.waitingAttackers.length > 0 && (
-                    <div style={{ 
-                      background: 'rgba(220,38,38,0.1)', 
-                      padding: '8px 10px', 
-                      marginBottom: 10, 
-                      fontSize: 10,
-                      borderRadius: 6,
-                    }}>
-                      <div style={{ color: S.red, fontWeight: 600, marginBottom: 6 }}>⏳ Queue ({battle.waitingAttackers.length} waiting):</div>
+                    <div style={{ background: 'rgba(139,0,0,0.2)', border: `1px solid ${S.red}`, padding: 6, marginBottom: 8, fontSize: 9 }}>
+                      <div style={{ color: S.red, fontWeight: '600', marginBottom: 4 }}>⏳ Queue ({battle.waitingAttackers.length} waiting):</div>
                       {battle.waitingAttackers.map((w, idx) => {
                         const names = [w.clan, ...(w.allies || [])].map(c => CLANS[c]?.name).join(' + ');
                         return (
-                          <div key={idx} style={{ marginTop: 4 }}>
+                          <div key={idx} style={{ marginTop: 2 }}>
                             <span style={{ color: CLANS[w.clan]?.color }}>{idx + 1}. {names}</span>
                             {w.armyBreakdown && w.armyBreakdown.length > 1 ? (
-                              <span style={{ color: S.textMuted }}> ({w.armyBreakdown.map(b => `${b.armies} ${CLANS[b.clan]?.name}`).join(' + ')})</span>
+                              <span style={{ color: S.parchmentDark }}> ({w.armyBreakdown.map(b => `${b.armies} ${CLANS[b.clan]?.name}`).join(' + ')})</span>
                             ) : (
-                              <span style={{ color: S.textMuted }}> ({w.armies} armies)</span>
+                              <span style={{ color: S.parchmentDark }}> ({w.armies} armies)</span>
                             )}
                           </div>
                         );
@@ -2703,38 +2523,17 @@ export default function SengokuMap() {
                     </div>
                   )}
                   
-                  {/* Win Buttons */}
                   {battle.type !== 'bye' && (
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="flex gap-2">
                       <button 
                         onClick={() => resolveBattle(battle.id, battle.attacker)}
-                        style={{ 
-                          flex: 1, 
-                          padding: '10px 12px', 
-                          background: CLANS[battle.attacker]?.color, 
-                          border: 'none', 
-                          borderRadius: 6,
-                          color: '#fff', 
-                          fontSize: 11, 
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
+                        style={{ flex: 1, padding: 8, background: CLANS[battle.attacker]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
                       >
                         {CLANS[battle.attacker]?.name} Wins
                       </button>
                       <button 
                         onClick={() => resolveBattle(battle.id, battle.defender)}
-                        style={{ 
-                          flex: 1, 
-                          padding: '10px 12px', 
-                          background: CLANS[battle.defender]?.color, 
-                          border: 'none', 
-                          borderRadius: 6,
-                          color: '#fff', 
-                          fontSize: 11, 
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
+                        style={{ flex: 1, padding: 8, background: CLANS[battle.defender]?.color, border: 'none', color: '#fff', fontSize: 10, fontWeight: '600' }}
                       >
                         {CLANS[battle.defender]?.name} Wins
                       </button>
@@ -2793,84 +2592,26 @@ export default function SengokuMap() {
           </div>
         )}
 
-        {/* Legend - Cleaner design */}
-        <div className="absolute bottom-4 left-4 z-10" style={{ 
-          background: S.bgSecondary, 
-          border: `1px solid ${S.border}`, 
-          borderRadius: 8,
-          padding: '12px 16px',
-        }}>
-          <p style={{ color: S.textMuted, fontSize: 10, letterSpacing: 1, marginBottom: 10, fontWeight: 500 }}>CLANS</p>
+        {/* Legend */}
+        <div className="absolute bottom-4 left-4 z-10" style={{ background: S.woodMid, border: `3px solid ${S.woodLight}`, padding: '12px 16px' }}>
+          <p style={{ color: S.parchmentDark, fontSize: 10, letterSpacing: 2, marginBottom: 8 }}>CLANS</p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-2">
             {Object.entries(CLANS).filter(([id]) => id !== 'uncontrolled').map(([id, c]) => (
               <div key={id} className="flex items-center gap-2">
-                <div style={{ width: 10, height: 10, background: c.color, borderRadius: 2 }} />
-                <span style={{ color: S.textSecondary, fontSize: 11 }}>{c.name}</span>
+                <div style={{ width: 12, height: 12, background: c.color, border: '1px solid rgba(255,255,255,0.3)' }} />
+                <span style={{ color: S.parchment, fontSize: 11 }}>{c.name}</span>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Side Panel - Modern design */}
+      {/* Side Panel */}
       {selected && provinces[selected] && (
-        <div style={{ 
-          width: 360, 
-          background: S.bgSecondary, 
-          borderLeft: `1px solid ${S.border}`, 
-          display: 'flex', 
-          flexDirection: 'column',
-        }}>
-          {/* Province Header */}
-          <div style={{ 
-            padding: '20px 24px', 
-            background: `linear-gradient(135deg, ${getColor(selected)}25, transparent)`,
-            borderBottom: `1px solid ${S.border}`,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-              <div>
-                <h2 style={{ color: S.textPrimary, fontSize: 22, fontWeight: 700, marginBottom: 6 }}>{provinces[selected].name}</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ 
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '4px 10px',
-                    background: `${getColor(selected)}30`,
-                    border: `1px solid ${getColor(selected)}`,
-                    borderRadius: 4,
-                    color: getColor(selected),
-                    fontSize: 11,
-                    fontWeight: 600,
-                  }}>
-                    <span style={{ width: 8, height: 8, background: getColor(selected), borderRadius: 2 }} />
-                    {CLANS[provinces[selected].owner]?.name || 'Neutral'}
-                  </span>
-                  <span style={{ 
-                    padding: '4px 8px',
-                    background: S.bgTertiary,
-                    borderRadius: 4,
-                    color: S.textMuted,
-                    fontSize: 10,
-                  }}>
-                    {BATTLE_TYPES[provinces[selected].battleType]?.icon} {BATTLE_TYPES[provinces[selected].battleType]?.name}
-                  </span>
-                </div>
-              </div>
-              <button 
-                onClick={() => setSelected(null)}
-                style={{ 
-                  background: 'transparent', 
-                  border: 'none', 
-                  color: S.textMuted, 
-                  fontSize: 20, 
-                  cursor: 'pointer',
-                  padding: 4,
-                }}
-              >
-                ×
-              </button>
-            </div>
+        <div style={{ width: 320, background: `linear-gradient(180deg, ${S.woodDark} 0%, #1a0f0a 100%)`, borderLeft: `4px solid ${S.woodLight}`, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: 20, background: `linear-gradient(135deg, ${getColor(selected)}40, transparent)`, borderBottom: `3px solid ${S.woodLight}` }}>
+            <h2 style={{ color: S.parchment, fontSize: 24, fontWeight: '700' }}>{provinces[selected].name}</h2>
+            <p style={{ color: S.parchmentDark, fontSize: 12 }}>領主 <span style={{ color: getColor(selected), fontWeight: '600' }}>{CLANS[provinces[selected].owner]?.name || 'None'}</span></p>
           </div>
           
           <div style={{ padding: 20, flex: 1, overflowY: 'auto' }}>
@@ -2904,20 +2645,15 @@ export default function SengokuMap() {
               const isOwner = provOwner === clan;
               
               return (
-                <div style={{ 
-                  background: S.bgTertiary, 
-                  borderRadius: 8,
-                  padding: 16, 
-                  marginBottom: 16,
-                }}>
+                <div style={{ background: S.woodMid, border: `2px solid ${S.woodLight}`, padding: 16, marginBottom: 16 }}>
                   <div className="flex justify-between items-center mb-3">
                     <div>
-                      <p style={{ color: S.textPrimary, fontWeight: 600, fontSize: 13 }}>軍勢</p>
-                      <p style={{ color: S.textMuted, fontSize: 10 }}>Armies Here</p>
+                      <p style={{ color: S.parchment, fontWeight: '600' }}>軍勢</p>
+                      <p style={{ color: S.parchmentDark, fontSize: 10 }}>Armies Here</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <span style={{ color: S.gold, fontSize: 28, fontWeight: 700 }}>{currentArmies}</span>
-                      {thisProvHasLevyQueued && <span style={{ color: S.green, fontSize: 16 }}> +1</span>}
+                      <span style={{ color: S.gold, fontSize: 28, fontWeight: '700' }}>{currentArmies}</span>
+                      {thisProvHasLevyQueued && <span style={{ color: '#4a7c23', fontSize: 16 }}> +1</span>}
                     </div>
                   </div>
                   
@@ -3261,23 +2997,10 @@ export default function SengokuMap() {
             )}
 
             <div style={{ marginBottom: 16 }}>
-              <p style={{ color: S.textMuted, fontSize: 10, marginBottom: 8, letterSpacing: 1, fontWeight: 500 }}>NEIGHBORS</p>
+              <p style={{ color: S.parchmentDark, fontSize: 11, marginBottom: 8 }}>NEIGHBORS</p>
               <div className="flex flex-wrap gap-2">
                 {PROVINCE_DATA[selected]?.neighbors?.map(n => (
-                  <button 
-                    key={n} 
-                    onClick={() => setSelected(n)} 
-                    style={{ 
-                      padding: '6px 12px', 
-                      background: S.bgTertiary, 
-                      border: 'none',
-                      borderLeft: `3px solid ${getColor(n)}`, 
-                      borderRadius: 4,
-                      color: S.textSecondary, 
-                      fontSize: 11,
-                      cursor: 'pointer',
-                    }}
-                  >
+                  <button key={n} onClick={() => setSelected(n)} style={{ padding: '4px 10px', background: S.woodDark, border: `1px solid ${S.woodLight}`, borderLeft: `3px solid ${getColor(n)}`, color: S.parchment, fontSize: 11 }}>
                     {PROVINCE_DATA[n]?.name}
                   </button>
                 ))}
@@ -3285,23 +3008,10 @@ export default function SengokuMap() {
             </div>
 
             {admin && (
-              <div style={{ borderTop: `1px solid ${S.border}`, paddingTop: 16 }}>
-                <p style={{ color: S.red, fontSize: 10, marginBottom: 12, letterSpacing: 1, fontWeight: 500 }}>ADMIN</p>
-                <select 
-                  value={provinces[selected].owner} 
-                  onChange={e => setProvinces({ ...provinces, [selected]: { ...provinces[selected], owner: e.target.value } })} 
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px 12px', 
-                    background: S.bgTertiary, 
-                    border: 'none',
-                    borderRadius: 6,
-                    color: S.textPrimary, 
-                    fontSize: 12, 
-                    marginBottom: 12,
-                  }}
-                >
-                  {Object.entries(CLANS).map(([id, c]) => <option key={id} value={id} style={{ background: S.bgSecondary }}>{c.name}</option>)}
+              <div style={{ borderTop: `2px solid ${S.woodLight}`, paddingTop: 16 }}>
+                <p style={{ color: S.red, fontSize: 10, marginBottom: 12 }}>ADMIN</p>
+                <select value={provinces[selected].owner} onChange={e => setProvinces({ ...provinces, [selected]: { ...provinces[selected], owner: e.target.value } })} style={{ width: '100%', padding: 8, background: S.woodDark, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 12, marginBottom: 12 }}>
+                  {Object.entries(CLANS).map(([id, c]) => <option key={id} value={id} style={{ background: S.woodDark }}>{c.name}</option>)}
                 </select>
                 <div className="flex gap-2 mb-3">
                   <button onClick={() => {
@@ -3311,32 +3021,12 @@ export default function SengokuMap() {
                     if (current > 0) {
                       setProvinces({ ...provinces, [selected]: removeArmiesFromProvince(prov, owner, 1) });
                     }
-                  }} style={{ 
-                    flex: 1, 
-                    padding: '10px 12px', 
-                    background: S.red, 
-                    border: 'none', 
-                    borderRadius: 6,
-                    color: '#fff', 
-                    fontSize: 11,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                  }}>− Army</button>
+                  }} style={{ flex: 1, padding: 8, background: S.red, border: 'none', color: S.parchment, fontSize: 11 }}>− Army</button>
                   <button onClick={() => {
                     const prov = provinces[selected];
                     const owner = prov.owner;
                     setProvinces({ ...provinces, [selected]: addArmiesToProvince(prov, owner, 1) });
-                  }} style={{ 
-                    flex: 1, 
-                    padding: '10px 12px', 
-                    background: S.green, 
-                    border: 'none', 
-                    borderRadius: 6,
-                    color: '#fff', 
-                    fontSize: 11,
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                  }}>+ Army</button>
+                  }} style={{ flex: 1, padding: 8, background: '#2d5016', border: 'none', color: S.parchment, fontSize: 11 }}>+ Army</button>
                 </div>
                 
                 {/* Clan Rally Cap (for the clan that owns this province) */}
