@@ -241,7 +241,7 @@ export default function SengokuMap() {
   const [timeUntilDeadline, setTimeUntilDeadline] = useState(getTimeUntilDeadline());
   const [currentPhase, setCurrentPhase] = useState(getCurrentPhase());
   const [tooltip, setTooltip] = useState(null);
-  const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 732, h: 777 });
+  const [viewBox, setViewBox] = useState({ x: 50, y: 100, w: 550, h: 550 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeBattles, setActiveBattles] = useState([]);
@@ -1533,7 +1533,7 @@ export default function SengokuMap() {
     return 0;
   });
 
-  const isZoomedIn = viewBox.w < 500;
+  const isZoomedIn = viewBox.w < 600;
   const clanPending = pendingMoves.filter(m => m.clan === clan);
   const clanCommitted = committedMoves.filter(m => m.clan === clan);
 
@@ -1594,7 +1594,7 @@ export default function SengokuMap() {
         <div className="absolute top-24 right-4 z-20 flex flex-col gap-1">
           {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(200, v.w * 0.8), h: Math.max(200, v.h * 0.8) })) },
             { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(1500, v.w * 1.2), h: Math.min(1600, v.h * 1.2) })) },
-            { l: '◯', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }) }].map((b, i) => (
+            { l: '◯', a: () => setViewBox({ x: 50, y: 100, w: 550, h: 550 }) }].map((b, i) => (
             <button key={i} onClick={b.a} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
           ))}
           <button 
