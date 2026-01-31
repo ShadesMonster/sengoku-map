@@ -241,7 +241,7 @@ export default function SengokuMap() {
   const [timeUntilDeadline, setTimeUntilDeadline] = useState(getTimeUntilDeadline());
   const [currentPhase, setCurrentPhase] = useState(getCurrentPhase());
   const [tooltip, setTooltip] = useState(null);
-  const [viewBox, setViewBox] = useState({ x: 100, y: 150, w: 450, h: 450 });
+  const [viewBox, setViewBox] = useState({ x: 150, y: 200, w: 350, h: 350 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [activeBattles, setActiveBattles] = useState([]);
@@ -1540,11 +1540,7 @@ export default function SengokuMap() {
   return (
     <div className="w-full h-screen flex" style={{ background: '#1a1a1a', fontFamily: "'Cinzel', serif" }}>
       <div className="flex-1 relative overflow-hidden" style={{
-        background: `
-          radial-gradient(ellipse at center, #2a2520 0%, #1a1510 70%, #0d0a08 100%),
-          url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")
-        `,
-        backgroundBlendMode: 'overlay',
+        background: 'radial-gradient(ellipse at center, #2a2218 0%, #1a1612 50%, #0f0c0a 100%)',
       }}>
         
         {/* Header */}
@@ -1598,9 +1594,9 @@ export default function SengokuMap() {
 
         {/* Zoom + History + Dashboard */}
         <div className="absolute top-24 right-4 z-20 flex flex-col gap-1">
-          {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(150, v.w * 0.8), h: Math.max(150, v.h * 0.8) })), t: 'Zoom In' },
+          {[{ l: '+', a: () => setViewBox(v => ({ ...v, w: Math.max(100, v.w * 0.8), h: Math.max(100, v.h * 0.8) })), t: 'Zoom In' },
             { l: '−', a: () => setViewBox(v => ({ ...v, w: Math.min(800, v.w * 1.2), h: Math.min(800, v.h * 1.2) })), t: 'Zoom Out' },
-            { l: '◯', a: () => setViewBox({ x: 100, y: 150, w: 450, h: 450 }), t: 'Reset View' },
+            { l: '◯', a: () => setViewBox({ x: 150, y: 200, w: 350, h: 350 }), t: 'Reset View' },
             { l: '▢', a: () => setViewBox({ x: 0, y: 0, w: 732, h: 777 }), t: 'Fit All' }].map((b, i) => (
             <button key={i} onClick={b.a} title={b.t} style={{ width: 32, height: 32, background: S.woodMid, border: `1px solid ${S.woodLight}`, color: S.parchment, fontSize: 16 }}>{b.l}</button>
           ))}
